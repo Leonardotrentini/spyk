@@ -14,7 +14,7 @@ import { TrafficAnalyticsModal } from './components/TrafficAnalyticsModal';
 import { StatsOverview } from './components/StatsOverview';
 import { KanbanBoard } from './components/KanbanBoard';
 import { MarketResearch } from './components/MarketResearch';
-import { suggestNiches, analyzeLibraryUrl } from './services/geminiService';
+import { suggestNiches, analyzeLibraryUrl, updateLibraryData } from './services/scraperService';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#6366f1'];
 
@@ -76,6 +76,79 @@ const App: React.FC = () => {
   useEffect(() => { localStorage.setItem('adlib_boards', JSON.stringify(boards)); }, [boards]);
   useEffect(() => { localStorage.setItem('adlib_tasks', JSON.stringify(tasks)); }, [tasks]);
 
+  // --- Auto-update em tempo real para bibliotecas em monitoramento ---
+  useEffect(() => {
+    // Intervalo de atualização: 5 minutos (300000ms)
+    const UPDATE_INTERVAL = 5 * 60 * 1000;
+    
+    // Função para atualizar uma biblioteca específica
+    const updateSingleLibrary = async (entry: LibraryEntry) => {
+      // Marca como atualizando
+      setEntries(prev => prev.map(e => 
+        e.id === entry.id ? { ...e, isUpdating: true } : e
+      ));
+
+      try {
+        const updatedData = await updateLibraryData(entry.url);
+        
+        if (updatedData) {
+          setEntries(prev => prev.map(e => {
+            if (e.id === entry.id) {
+              return {
+                ...e,
+                brandName: updatedData.brandName,
+                activeAdsCount: updatedData.estimatedAdsCount,
+                landingPageUrl: updatedData.landingPageUrl,
+                lastChecked: Date.now(),
+                isUpdating: false
+              };
+            }
+            return e;
+          }));
+        } else {
+          // Se falhar, remove flag de atualização
+          setEntries(prev => prev.map(e => 
+            e.id === entry.id ? { ...e, isUpdating: false } : e
+          ));
+        }
+      } catch (error) {
+        console.error(`Erro ao atualizar biblioteca ${entry.brandName}:`, error);
+        // Remove flag de atualização em caso de erro
+        setEntries(prev => prev.map(e => 
+          e.id === entry.id ? { ...e, isUpdating: false } : e
+        ));
+      }
+    };
+
+    // Atualiza todas as bibliotecas em monitoramento
+    const updateAllMonitoringLibraries = async () => {
+      const monitoringEntries = entries.filter(e => e.status === 'monitoring' && !e.isUpdating);
+      
+      // Atualiza uma por vez para não sobrecarregar
+      for (const entry of monitoringEntries) {
+        await updateSingleLibrary(entry);
+        // Aguarda 2 segundos entre cada atualização
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    };
+
+    // Executa atualização inicial após 10 segundos
+    const initialTimeout = setTimeout(() => {
+      updateAllMonitoringLibraries();
+    }, 10000);
+
+    // Configura intervalo de atualização automática
+    const interval = setInterval(() => {
+      updateAllMonitoringLibraries();
+    }, UPDATE_INTERVAL);
+
+    // Cleanup
+    return () => {
+      clearTimeout(initialTimeout);
+      clearInterval(interval);
+    };
+  }, [entries]);
+
   // --- Handlers ---
   const handleAddEntry = (entryData: Omit<LibraryEntry, 'id' | 'createdAt' | 'lastChecked'>) => {
     const newEntry: LibraryEntry = {
@@ -97,8 +170,48 @@ const App: React.FC = () => {
 
   const handleToggleStatus = (id: string) => {
     setEntries(entries.map(e => 
-      e.id === id ? { ...e, status: e.status === 'monitoring' ? 'paused' : 'monitoring' } : e
+      e.id === id ? { ...e, status: e.status === 'monitoring' ? 'paused' : 'monitoring', isUpdating: false } : e
     ));
+  };
+
+  // Handler para atualização manual de uma biblioteca
+  const handleManualUpdate = async (id: string) => {
+    const entry = entries.find(e => e.id === id);
+    if (!entry || entry.isUpdating) return;
+
+    // Marca como atualizando
+    setEntries(prev => prev.map(e => 
+      e.id === id ? { ...e, isUpdating: true } : e
+    ));
+
+    try {
+      const updatedData = await updateLibraryData(entry.url);
+      
+      if (updatedData) {
+        setEntries(prev => prev.map(e => {
+          if (e.id === id) {
+            return {
+              ...e,
+              brandName: updatedData.brandName,
+              activeAdsCount: updatedData.estimatedAdsCount,
+              landingPageUrl: updatedData.landingPageUrl,
+              lastChecked: Date.now(),
+              isUpdating: false
+            };
+          }
+          return e;
+        }));
+      } else {
+        setEntries(prev => prev.map(e => 
+          e.id === id ? { ...e, isUpdating: false } : e
+        ));
+      }
+    } catch (error) {
+      console.error(`Erro ao atualizar biblioteca manualmente:`, error);
+      setEntries(prev => prev.map(e => 
+        e.id === id ? { ...e, isUpdating: false } : e
+      ));
+    }
   };
 
   const handleToggleFavorite = (id: string) => {
@@ -503,6 +616,7 @@ const App: React.FC = () => {
                         onToggleFavorite={handleToggleFavorite}
                         onToggleBoard={handleToggleBoard}
                         onOpenTrafficAnalysis={handleOpenTrafficAnalysis}
+                        onManualUpdate={handleManualUpdate}
                       />
                     ))}
                   </div>

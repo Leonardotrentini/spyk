@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Sparkles, Loader2, Globe, Link as LinkIcon, Hash, BarChart2 } from 'lucide-react';
-import { analyzeLibraryUrl, UrlAnalysisResult } from '../services/geminiService';
+import { analyzeLibraryUrl, UrlAnalysisResult } from '../services/scraperService';
 import { LibraryEntry, NicheOption } from '../types';
 
 interface AddLibraryModalProps {

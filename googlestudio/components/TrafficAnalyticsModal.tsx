@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { X, Calendar, ArrowUp, ArrowDown, Users, Clock, MousePointer, Activity, Loader2 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { getTrafficAnalytics } from '../services/geminiService';
+import { getTrafficAnalytics } from '../services/scraperService';
 import { TrafficStats } from '../types';
 
 interface TrafficAnalyticsModalProps {
@@ -59,7 +59,7 @@ export const TrafficAnalyticsModal: React.FC<TrafficAnalyticsModalProps> = ({
                <div className="w-12 h-12 rounded-full border-4 border-blue-600 border-t-transparent animate-spin absolute top-0 left-0"></div>
              </div>
              <p className="text-slate-800 font-medium">Gathering traffic intelligence...</p>
-             <p className="text-slate-500 text-sm mt-1">Analyzing Similarweb & search signals</p>
+             <p className="text-slate-500 text-sm mt-1">Extracting data from SimilarWeb (pode levar alguns segundos)</p>
           </div>
         ) : data ? (
           <div className="flex-1 overflow-y-auto p-6">
@@ -162,7 +162,9 @@ export const TrafficAnalyticsModal: React.FC<TrafficAnalyticsModalProps> = ({
             </div>
             
             <p className="text-xs text-slate-400 mt-4 text-center">
-               Data estimated via AI search analysis. Actual values may vary.
+               {data.totalVisits === "N/A" 
+                 ? "⚠️ SimilarWeb pode ter bloqueado o acesso. Dados podem ser limitados ou requerer login."
+                 : "Data extracted from SimilarWeb. SimilarWeb may limit data for non-authenticated users."}
             </p>
           </div>
         ) : (

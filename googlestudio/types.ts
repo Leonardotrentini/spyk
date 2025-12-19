@@ -13,6 +13,7 @@ export interface LibraryEntry {
   isFavorite: boolean;
   boardIds: string[];
   trafficEstimate?: string;
+  isUpdating?: boolean; // Indica se está sendo atualizado no momento
 }
 
 export interface NicheOption {

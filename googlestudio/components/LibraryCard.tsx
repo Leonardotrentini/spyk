@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ExternalLink, MoreHorizontal, PauseCircle, PlayCircle, Trash2, Globe, FileText, Clock, Heart, FolderPlus, BarChart2, Loader2 } from 'lucide-react';
+import { ExternalLink, MoreHorizontal, PauseCircle, PlayCircle, Trash2, Globe, FileText, Clock, Heart, FolderPlus, BarChart2, Loader2, RefreshCw } from 'lucide-react';
 import { Board, LibraryEntry, NicheOption } from '../types';
 
 interface LibraryCardProps {
@@ -11,10 +11,11 @@ interface LibraryCardProps {
   onToggleFavorite: (id: string) => void;
   onToggleBoard: (entryId: string, boardId: string) => void;
   onOpenTrafficAnalysis: (entryId: string) => void;
+  onManualUpdate?: (id: string) => void;
 }
 
 export const LibraryCard: React.FC<LibraryCardProps> = ({ 
-  entry, niches, boards, onDelete, onToggleStatus, onToggleFavorite, onToggleBoard, onOpenTrafficAnalysis
+  entry, niches, boards, onDelete, onToggleStatus, onToggleFavorite, onToggleBoard, onOpenTrafficAnalysis, onManualUpdate
 }) => {
   const nicheColor = niches.find(n => n.label === entry.niche)?.color || 'bg-slate-100 text-slate-600';
   const [showBoardMenu, setShowBoardMenu] = useState(false);
@@ -88,8 +89,13 @@ export const LibraryCard: React.FC<LibraryCardProps> = ({
 
         {/* Metrics */}
         <div className="grid grid-cols-2 gap-2 mt-4">
-           <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
-              <p className="text-xs text-slate-500 font-medium mb-1">Active Ads</p>
+           <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 relative">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs text-slate-500 font-medium">Active Ads</p>
+                {entry.isUpdating && (
+                  <RefreshCw size={12} className="text-blue-500 animate-spin" />
+                )}
+              </div>
               <p className="text-lg font-bold text-slate-900">{entry.activeAdsCount}</p>
            </div>
            <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
@@ -102,6 +108,14 @@ export const LibraryCard: React.FC<LibraryCardProps> = ({
               </div>
            </div>
         </div>
+        
+        {/* Status de atualização */}
+        {entry.isUpdating && (
+          <div className="mt-2 flex items-center gap-2 text-xs text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
+            <Loader2 size={12} className="animate-spin" />
+            <span>Atualizando dados...</span>
+          </div>
+        )}
       </div>
 
       {/* Footer Actions */}
@@ -136,6 +150,16 @@ export const LibraryCard: React.FC<LibraryCardProps> = ({
          </div>
          
          <div className="flex items-center border-l border-slate-200 pl-2 ml-1">
+             {onManualUpdate && (
+               <button 
+                 onClick={() => onManualUpdate(entry.id)}
+                 disabled={entry.isUpdating}
+                 className={`p-2 rounded-md transition-colors ${entry.isUpdating ? 'text-blue-400 cursor-not-allowed' : 'text-blue-500 hover:bg-blue-50'}`}
+                 title="Atualizar agora"
+               >
+                 <RefreshCw size={18} className={entry.isUpdating ? 'animate-spin' : ''} />
+               </button>
+             )}
              <button 
                 onClick={() => onToggleStatus(entry.id)}
                 className={`p-2 rounded-md transition-colors ${entry.status === 'monitoring' ? 'text-emerald-500 hover:bg-emerald-50' : 'text-amber-500 hover:bg-amber-50'}`}

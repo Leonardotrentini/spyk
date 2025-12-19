@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Search, Sparkles, TrendingUp, HelpCircle, Lightbulb, ArrowRight, Loader2, BarChart2, Zap, BarChart, Globe, MapPin } from 'lucide-react';
-import { analyzeMarketTrends, getCountryTrends, MarketTrendReport } from '../services/geminiService';
+import { analyzeMarketTrends, getCountryTrends, MarketTrendReport } from '../services/scraperService';
 
 const COUNTRIES = [
   { code: 'US', name: 'United States' },
