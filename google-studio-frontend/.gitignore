@@ -1,0 +1,13 @@
+# Arquivos temporários
+.DS_Store
+*.log
+*.cache
+
+# Dependências (se houver)
+node_modules/
+.next/
+dist/
+
+# Arquivos de build
+*.tsbuildinfo
+

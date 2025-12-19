@@ -1,0 +1,29 @@
+========================================
+  COMANDO PARA RODAR O APP
+========================================
+
+Copie e cole este comando no PowerShell:
+
+cd "C:\Users\Leonardo trentini\Desktop\spy" ; npm run dev
+
+Depois que o servidor iniciar (você verá "Local: http://localhost:3000"),
+abra seu navegador e acesse:
+
+http://localhost:3000
+
+========================================
+  OU USE O SCRIPT AUTOMÁTICO:
+========================================
+
+powershell -ExecutionPolicy Bypass -File "C:\Users\Leonardo trentini\Desktop\spy\RODAR-APP.ps1"
+
+Este script:
+- Instala dependências se necessário
+- Roda o servidor
+- Abre o navegador automaticamente
+
+========================================
+
+
+
+
