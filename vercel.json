@@ -1,0 +1,23 @@
+{
+  "buildCommand": "cd googlestudio && npm install && npm run build",
+  "outputDirectory": "googlestudio/dist",
+  "installCommand": "cd googlestudio && npm install",
+  "framework": "vite",
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "functions": {
+    "googlestudio/api/**/*.js": {
+      "maxDuration": 60,
+      "memory": 1024
+    }
+  }
+}
+
