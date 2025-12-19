@@ -564,7 +564,10 @@ async function extractLandingPageUrl(page) {
  * Função principal de scraping da Meta Ad Library
  */
 export async function scrapeMetaAdLibrary(url) {
-  const browser = await puppeteer.launch({
+  // Detecta se está rodando na Vercel (serverless)
+  const isVercel = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
+  
+  let browserOptions = {
     headless: 'new',
     args: [
       '--no-sandbox',
@@ -572,21 +575,55 @@ export async function scrapeMetaAdLibrary(url) {
       '--disable-blink-features=AutomationControlled',
       '--disable-features=IsolateOrigins,site-per-process',
       '--disable-web-security',
-      '--disable-dev-shm-usage'
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--single-process'
     ]
-  });
+  };
+
+  // Configurações específicas para Vercel/serverless
+  if (isVercel) {
+    browserOptions.args.push(
+      '--disable-extensions',
+      '--disable-background-networking',
+      '--disable-background-timer-throttling',
+      '--disable-backgrounding-occluded-windows',
+      '--disable-breakpad',
+      '--disable-client-side-phishing-detection',
+      '--disable-default-apps',
+      '--disable-hang-monitor',
+      '--disable-popup-blocking',
+      '--disable-prompt-on-repost',
+      '--disable-sync',
+      '--disable-translate',
+      '--metrics-recording-only',
+      '--no-first-run',
+      '--safebrowsing-disable-auto-update',
+      '--enable-automation',
+      '--password-store=basic',
+      '--use-mock-keychain',
+      '--disable-ipc-flooding-protection'
+    );
+  }
+
+  const browser = await puppeteer.launch(browserOptions);
 
   try {
     const page = await browser.newPage();
     
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
     
+    // Timeout maior na Vercel devido a latência
+    const timeout = isVercel ? 60000 : 30000;
+    
     await page.goto(url, { 
       waitUntil: 'networkidle2',
-      timeout: 30000 
+      timeout: timeout 
     });
 
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    // Aguarda mais tempo na Vercel para garantir carregamento completo
+    const waitTime = isVercel ? 5000 : 3000;
+    await new Promise(resolve => setTimeout(resolve, waitTime));
 
     const pageName = await extractPageName(page);
     const totalAds = await extractTotalActiveAds(page);
