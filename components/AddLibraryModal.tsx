@@ -46,6 +46,7 @@ export const AddLibraryModal: React.FC<AddLibraryModalProps> = ({
   }, [isOpen]);
 
   const handleAnalyze = async () => {
+<<<<<<< HEAD
     if (!url) {
       alert('Por favor, insira uma URL primeiro');
       return;
@@ -86,6 +87,28 @@ export const AddLibraryModal: React.FC<AddLibraryModalProps> = ({
       alert(`Erro ao analisar: ${error.message || 'Verifique se o backend está configurado (Edge Functions deployadas)'}`);
     } finally {
       setIsAnalyzing(false);
+=======
+    if (!url) return;
+    setIsAnalyzing(true);
+    const result: UrlAnalysisResult | null = await analyzeLibraryUrl(url);
+    setIsAnalyzing(false);
+
+    if (result) {
+      setBrandName(result.brandName);
+      setLandingPageUrl(result.landingPageUrl);
+      setActiveAdsCount(result.estimatedAdsCount);
+      setTrafficEstimate(result.trafficEstimate || '');
+      
+      // Try to match existing niche or set partial
+      const match = existingNiches.find(n => n.label.toLowerCase() === result.niche.toLowerCase());
+      if (match) {
+        setSelectedNiche(match.label);
+      } else {
+        // Auto-create logic could go here, but let's just pre-fill the "create new" input
+        setNewNicheInput(result.niche);
+        setSelectedNiche('__NEW__');
+      }
+>>>>>>> 67aac4f327c2bf1a6214bcda81527dfb41c16f57
     }
   };
 

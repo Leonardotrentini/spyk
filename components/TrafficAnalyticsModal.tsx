@@ -10,11 +10,18 @@ interface TrafficAnalyticsModalProps {
   brandName: string;
   url: string;
   initialEstimate?: string;
+<<<<<<< HEAD
   libraryEntryId?: string;
 }
 
 export const TrafficAnalyticsModal: React.FC<TrafficAnalyticsModalProps> = ({ 
   isOpen, onClose, brandName, url, initialEstimate, libraryEntryId 
+=======
+}
+
+export const TrafficAnalyticsModal: React.FC<TrafficAnalyticsModalProps> = ({ 
+  isOpen, onClose, brandName, url, initialEstimate 
+>>>>>>> 67aac4f327c2bf1a6214bcda81527dfb41c16f57
 }) => {
   const [data, setData] = useState<TrafficStats | null>(null);
   const [loading, setLoading] = useState(false);
@@ -23,12 +30,20 @@ export const TrafficAnalyticsModal: React.FC<TrafficAnalyticsModalProps> = ({
   useEffect(() => {
     if (isOpen && brandName) {
       setLoading(true);
+<<<<<<< HEAD
       getTrafficAnalytics(brandName, url, libraryEntryId).then(result => {
+=======
+      getTrafficAnalytics(brandName, url).then(result => {
+>>>>>>> 67aac4f327c2bf1a6214bcda81527dfb41c16f57
         setData(result);
         setLoading(false);
       });
     }
+<<<<<<< HEAD
   }, [isOpen, brandName, url, libraryEntryId]);
+=======
+  }, [isOpen, brandName, url]);
+>>>>>>> 67aac4f327c2bf1a6214bcda81527dfb41c16f57
 
   if (!isOpen) return null;
 

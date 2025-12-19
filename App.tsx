@@ -15,8 +15,11 @@ import { StatsOverview } from './components/StatsOverview';
 import { KanbanBoard } from './components/KanbanBoard';
 import { MarketResearch } from './components/MarketResearch';
 import { suggestNiches, analyzeLibraryUrl } from './services/geminiService';
+<<<<<<< HEAD
 import { supabase } from './lib/supabase/client';
 import * as adlibService from './lib/adlibService';
+=======
+>>>>>>> 67aac4f327c2bf1a6214bcda81527dfb41c16f57
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#6366f1'];
 
@@ -35,11 +38,33 @@ const DEFAULT_BOARDS: Board[] = [
 
 const App: React.FC = () => {
   // --- State ---
+<<<<<<< HEAD
   const [entries, setEntries] = useState<LibraryEntry[]>([]);
   const [niches, setNiches] = useState<NicheOption[]>(DEFAULT_NICHES);
   const [boards, setBoards] = useState<Board[]>(DEFAULT_BOARDS);
   const [tasks, setTasks] = useState<KanbanTask[]>([]);
   const [loading, setLoading] = useState(true);
+=======
+  const [entries, setEntries] = useState<LibraryEntry[]>(() => {
+    const saved = localStorage.getItem('adlib_entries');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [niches, setNiches] = useState<NicheOption[]>(() => {
+    const saved = localStorage.getItem('adlib_niches');
+    return saved ? JSON.parse(saved) : DEFAULT_NICHES;
+  });
+
+  const [boards, setBoards] = useState<Board[]>(() => {
+    const saved = localStorage.getItem('adlib_boards');
+    return saved ? JSON.parse(saved) : DEFAULT_BOARDS;
+  });
+
+  const [tasks, setTasks] = useState<KanbanTask[]>(() => {
+    const saved = localStorage.getItem('adlib_tasks');
+    return saved ? JSON.parse(saved) : [];
+  });
+>>>>>>> 67aac4f327c2bf1a6214bcda81527dfb41c16f57
 
   // UI State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -58,6 +83,7 @@ const App: React.FC = () => {
   const [filterMinDays, setFilterMinDays] = useState<number | ''>('');
   const [sortOption, setSortOption] = useState<SortOption>(SortOption.NEWEST);
   
+<<<<<<< HEAD
   // --- Effects - Load data from Supabase ---
   useEffect(() => {
     const loadData = async () => {
@@ -157,6 +183,53 @@ const App: React.FC = () => {
     } catch (error) {
       console.error('Error updating boards:', error);
     }
+=======
+  // --- Effects ---
+  useEffect(() => { localStorage.setItem('adlib_entries', JSON.stringify(entries)); }, [entries]);
+  useEffect(() => { localStorage.setItem('adlib_niches', JSON.stringify(niches)); }, [niches]);
+  useEffect(() => { localStorage.setItem('adlib_boards', JSON.stringify(boards)); }, [boards]);
+  useEffect(() => { localStorage.setItem('adlib_tasks', JSON.stringify(tasks)); }, [tasks]);
+
+  // --- Handlers ---
+  const handleAddEntry = (entryData: Omit<LibraryEntry, 'id' | 'createdAt' | 'lastChecked'>) => {
+    const newEntry: LibraryEntry = {
+      ...entryData,
+      id: crypto.randomUUID(),
+      createdAt: Date.now(),
+      lastChecked: Date.now(),
+      isFavorite: false,
+      boardIds: [],
+    };
+    setEntries([newEntry, ...entries]);
+  };
+
+  const handleDeleteEntry = (id: string) => {
+    if (window.confirm('Are you sure you want to delete this library monitor?')) {
+      setEntries(entries.filter(e => e.id !== id));
+    }
+  };
+
+  const handleToggleStatus = (id: string) => {
+    setEntries(entries.map(e => 
+      e.id === id ? { ...e, status: e.status === 'monitoring' ? 'paused' : 'monitoring' } : e
+    ));
+  };
+
+  const handleToggleFavorite = (id: string) => {
+    setEntries(entries.map(e => e.id === id ? { ...e, isFavorite: !e.isFavorite } : e));
+  };
+
+  const handleToggleBoard = (entryId: string, boardId: string) => {
+    setEntries(entries.map(e => {
+       if (e.id !== entryId) return e;
+       const currentBoards = e.boardIds || [];
+       if (currentBoards.includes(boardId)) {
+         return { ...e, boardIds: currentBoards.filter(b => b !== boardId) };
+       } else {
+         return { ...e, boardIds: [...currentBoards, boardId] };
+       }
+    }));
+>>>>>>> 67aac4f327c2bf1a6214bcda81527dfb41c16f57
   };
 
   // Open traffic modal
@@ -164,6 +237,7 @@ const App: React.FC = () => {
     setTrafficEntryId(id);
   };
 
+<<<<<<< HEAD
   const handleCreateBoard = async () => {
     const name = prompt("Enter new board name:");
     if (name) {
@@ -190,6 +264,21 @@ const App: React.FC = () => {
     } catch (error) {
       console.error('Error creating niche:', error);
     }
+=======
+  const handleCreateBoard = () => {
+    const name = prompt("Enter new board name:");
+    if (name) {
+      setBoards([...boards, { id: crypto.randomUUID(), name, type: 'custom' }]);
+    }
+  };
+
+  const handleCreateNiche = (label: string) => {
+    const exists = niches.some(n => n.label.toLowerCase() === label.toLowerCase());
+    if (exists) return;
+    const colors = ['bg-pink-100 text-pink-800', 'bg-cyan-100 text-cyan-800', 'bg-orange-100 text-orange-800'];
+    const randomColor = colors[Math.floor(Math.random() * colors.length)];
+    setNiches([...niches, { id: crypto.randomUUID(), label, color: randomColor }]);
+>>>>>>> 67aac4f327c2bf1a6214bcda81527dfb41c16f57
   };
 
   const suggestNewNiches = async () => {
@@ -198,6 +287,7 @@ const App: React.FC = () => {
   }
   
   // Kanban Handlers
+<<<<<<< HEAD
   const handleAddTask = async (content: string, status: KanbanTask['status']) => {
     try {
       const newTask = await adlibService.createKanbanTask(content, status);
@@ -225,6 +315,18 @@ const App: React.FC = () => {
       console.error('Error deleting task:', error);
       alert('Failed to delete task. Please try again.');
     }
+=======
+  const handleAddTask = (content: string, status: KanbanTask['status']) => {
+    setTasks([...tasks, { id: crypto.randomUUID(), content, status, createdAt: Date.now() }]);
+  };
+
+  const handleUpdateTaskStatus = (taskId: string, newStatus: KanbanTask['status']) => {
+    setTasks(tasks.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+  };
+
+  const handleDeleteTask = (taskId: string) => {
+    setTasks(tasks.filter(t => t.id !== taskId));
+>>>>>>> 67aac4f327c2bf1a6214bcda81527dfb41c16f57
   };
 
   const resetFilters = () => {
@@ -385,7 +487,11 @@ const App: React.FC = () => {
          
          {/* Sidebar Footer */}
          <div className="p-4 border-t border-slate-100 bg-slate-50/50">
+<<<<<<< HEAD
              <div className="flex items-center gap-3 mb-2">
+=======
+             <div className="flex items-center gap-3">
+>>>>>>> 67aac4f327c2bf1a6214bcda81527dfb41c16f57
                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold">
                     ME
                  </div>
@@ -394,6 +500,7 @@ const App: React.FC = () => {
                     <p className="text-xs text-slate-500 truncate">{entries.length} tracked items</p>
                  </div>
              </div>
+<<<<<<< HEAD
              <button
                onClick={async () => {
                  await supabase.auth.signOut();
@@ -402,6 +509,8 @@ const App: React.FC = () => {
              >
                Sair
              </button>
+=======
+>>>>>>> 67aac4f327c2bf1a6214bcda81527dfb41c16f57
          </div>
       </aside>
 
@@ -438,6 +547,7 @@ const App: React.FC = () => {
 
         {/* Scrollable Content Area */}
         <div className="flex-1 overflow-y-auto p-8">
+<<<<<<< HEAD
            {loading ? (
              <div className="flex items-center justify-center h-full">
                <div className="text-center">
@@ -447,6 +557,9 @@ const App: React.FC = () => {
              </div>
            ) : (
              <>
+=======
+           
+>>>>>>> 67aac4f327c2bf1a6214bcda81527dfb41c16f57
            {/* VIEW: LIBRARY */}
            {view === 'library' && (
              <div className="max-w-7xl mx-auto">
@@ -635,8 +748,11 @@ const App: React.FC = () => {
            {view === 'research' && (
              <MarketResearch />
            )}
+<<<<<<< HEAD
            </>
            )}
+=======
+>>>>>>> 67aac4f327c2bf1a6214bcda81527dfb41c16f57
 
         </div>
       </main>
@@ -655,7 +771,10 @@ const App: React.FC = () => {
         brandName={activeTrafficEntry?.brandName || ''}
         url={activeTrafficEntry?.url || ''}
         initialEstimate={activeTrafficEntry?.trafficEstimate}
+<<<<<<< HEAD
         libraryEntryId={activeTrafficEntry?.id}
+=======
+>>>>>>> 67aac4f327c2bf1a6214bcda81527dfb41c16f57
       />
     </div>
   );
