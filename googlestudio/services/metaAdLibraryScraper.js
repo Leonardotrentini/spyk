@@ -246,27 +246,48 @@ async function extractLandingPageUrl(page) {
 
     // Método 1: Tenta clicar em "Ver detalhes" do primeiro anúncio para ver a landing page
     try {
-      // Busca o botão "Ver detalhes" usando seletor mais específico
-      const detailButton = await page.$('button:has-text("Ver detalhes"), button:has-text("Ver resumo"), a:has-text("Ver detalhes"), div[role="button"]:has-text("Ver detalhes")')
-        || await page.evaluateHandle(() => {
-          const buttons = Array.from(document.querySelectorAll('button, a, div[role="button"]'));
-          for (const btn of buttons) {
-            const text = btn.textContent?.trim().toLowerCase();
-            if (text && (text.includes('ver detalhes') || text.includes('ver resumo') || 
-                        text.includes('view details') || text.includes('see details') ||
-                        text.includes('detalhes do anúncio'))) {
-              return btn;
+      // Busca o botão "Ver detalhes" de forma mais robusta
+      const detailButton = await page.evaluateHandle(() => {
+        const buttons = Array.from(document.querySelectorAll('button, a, div[role="button"], span[role="button"]'));
+        for (const btn of buttons) {
+          const text = btn.textContent?.trim().toLowerCase();
+          if (text && (text.includes('ver detalhes') || text.includes('ver resumo') || 
+                      text.includes('view details') || text.includes('see details') ||
+                      text.includes('detalhes do anúncio'))) {
+            // Verifica se está dentro de um card de anúncio (tem "Ativo" ou "Library ID" próximo)
+            let parent = btn;
+            for (let i = 0; i < 10 && parent; i++) {
+              const parentText = parent.textContent || '';
+              if (parentText.includes('Ativo') || parentText.includes('Active') || 
+                  parentText.includes('Identificação da biblioteca') || 
+                  parentText.includes('Library ID')) {
+                return btn;
+              }
+              parent = parent.parentElement;
             }
           }
-          return null;
-        });
+        }
+        return null;
+      });
 
       if (detailButton) {
         const element = detailButton.asElement ? detailButton.asElement() : detailButton;
         if (element) {
           // Clica no botão para abrir detalhes
-          await element.click({ delay: 100 });
-          await new Promise(resolve => setTimeout(resolve, 3000));
+          try {
+            await element.click({ delay: 100 });
+            await new Promise(resolve => setTimeout(resolve, 4000)); // Aguarda mais tempo
+          } catch (clickError) {
+            // Se não conseguir clicar, tenta via JavaScript
+            await page.evaluate((btn) => {
+              if (btn && typeof btn.click === 'function') {
+                btn.click();
+              } else if (btn && btn.dispatchEvent) {
+                btn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+              }
+            }, element);
+            await new Promise(resolve => setTimeout(resolve, 4000));
+          }
           
           // Busca a landing page nos detalhes abertos
           const landingPageFromDetails = await page.evaluate(() => {
@@ -278,13 +299,17 @@ async function extractLandingPageUrl(page) {
               const href = link.getAttribute('href');
               if (!href) continue;
               
-              // Remove links do Facebook/Meta
+              // Remove links do Facebook/Meta/Instagram
               if (href.includes('facebook.com') || 
                   href.includes('meta.com') || 
+                  href.includes('metastatus.com') ||
                   href.includes('instagram.com') ||
                   href.includes('messenger.com') ||
+                  href.includes('whatsapp.com') ||
                   href.startsWith('#') ||
-                  href.startsWith('javascript:')) {
+                  href.startsWith('javascript:') ||
+                  href.startsWith('mailto:') ||
+                  href.startsWith('tel:')) {
                 continue;
               }
               
@@ -296,13 +321,23 @@ async function extractLandingPageUrl(page) {
                 const url = new URL(fullUrl);
                 
                 const hostname = url.hostname.toLowerCase();
+                // Filtra domínios válidos que não são do Meta/Facebook
                 if (hostname.length > 4 && 
+                    hostname.includes('.') &&
+                    hostname.split('.').length >= 2 &&
                     !hostname.includes('facebook') &&
+                    !hostname.includes('fbcdn') &&
+                    !hostname.includes('static.xx') &&
+                    !hostname.includes('meta') &&
+                    !hostname.includes('metastatus') &&
                     !hostname.includes('instagram') &&
+                    !hostname.includes('messenger') &&
+                    !hostname.includes('whatsapp') &&
                     !hostname.includes('twitter') &&
                     !hostname.includes('linkedin') &&
                     !hostname.includes('youtube') &&
-                    !hostname.includes('tiktok')) {
+                    !hostname.includes('tiktok') &&
+                    !url.pathname.match(/\.(png|jpg|jpeg|gif|svg|webp|ico)$/i)) {
                   const fullUrlStr = url.origin + url.pathname + (url.search || '');
                   foundUrls.push(fullUrlStr);
                 }
@@ -335,11 +370,13 @@ async function extractLandingPageUrl(page) {
           const href = link.getAttribute('href');
           if (!href) return null;
           
-          // Remove links do Facebook/Meta
+          // Remove links do Facebook/Meta/Instagram
           if (href.includes('facebook.com') || 
               href.includes('meta.com') || 
+              href.includes('metastatus.com') ||
               href.includes('instagram.com') ||
               href.includes('messenger.com') ||
+              href.includes('whatsapp.com') ||
               href.startsWith('#') ||
               href.startsWith('javascript:') ||
               href.startsWith('mailto:') ||
@@ -355,39 +392,100 @@ async function extractLandingPageUrl(page) {
             }
             const url = new URL(fullUrl);
             
-            // Ignora URLs muito curtas, suspeitas ou de redes sociais
+            // Ignora URLs muito curtas, suspeitas ou de redes sociais/CDN
             const hostname = url.hostname.toLowerCase();
             if (hostname.length < 4 || 
                 hostname.includes('facebook') ||
+                hostname.includes('fbcdn') ||
+                hostname.includes('static.xx') ||
                 hostname.includes('instagram') ||
                 hostname.includes('twitter') ||
                 hostname.includes('linkedin') ||
                 hostname.includes('youtube') ||
-                hostname.includes('tiktok')) {
+                hostname.includes('tiktok') ||
+                hostname.endsWith('.png') ||
+                hostname.endsWith('.jpg') ||
+                hostname.endsWith('.jpeg') ||
+                hostname.endsWith('.gif') ||
+                hostname.endsWith('.svg')) {
               return null;
             }
             
-            // Retorna URL completa (com path e query params se houver)
-            return url.origin + url.pathname + (url.search || '');
+            // Ignora URLs que são imagens (terminam com extensão de imagem)
+            if (url.pathname.match(/\.(png|jpg|jpeg|gif|svg|webp|ico)$/i)) {
+              return null;
+            }
+            
+            // Valida se é uma URL válida e completa (tem domínio válido)
+            if (hostname.includes('.') && hostname.split('.').length >= 2 && hostname.length > 4) {
+              // Não pode ser IP
+              if (/^\d+\.\d+\.\d+\.\d+$/.test(hostname)) return null;
+              
+              // TLD deve ter pelo menos 2 caracteres
+              const parts = hostname.split('.');
+              const tld = parts[parts.length - 1];
+              if (tld.length < 2 || /^\d+$/.test(tld)) return null;
+              
+              // Retorna URL completa (com path e query params se houver)
+              return url.origin + url.pathname + (url.search || '');
+            }
+            return null;
           } catch (e) {
             return null;
           }
         })
-        .filter(url => url !== null && url !== undefined && url !== '')
+        .filter(url => {
+          // Filtra URLs válidas: não nulas, não vazias, têm domínio válido
+          if (!url || typeof url !== 'string' || url.length < 10) return false;
+          try {
+            const urlObj = new URL(url);
+            const hostname = urlObj.hostname.toLowerCase();
+            // Deve ter pelo menos um ponto e ser um domínio válido
+            return hostname.includes('.') && hostname.split('.').length >= 2 && hostname.length > 4;
+          } catch {
+            return false;
+          }
+        })
         .filter((url, index, self) => self.indexOf(url) === index); // Remove duplicatas
       
-      // Retorna o primeiro link externo encontrado (geralmente é a landing page)
+      // Retorna o primeiro link externo válido encontrado (geralmente é a landing page)
       if (externalLinks.length > 0 && externalLinks[0] && typeof externalLinks[0] === 'string') {
-        return externalLinks[0];
+        const firstUrl = externalLinks[0];
+        // Validação final
+        try {
+          const urlObj = new URL(firstUrl);
+          const hostname = urlObj.hostname.toLowerCase();
+          if (hostname.includes('.') && hostname.split('.').length >= 2 && hostname.length > 4) {
+            return firstUrl;
+          }
+        } catch {
+          // URL inválida, continua procurando
+        }
       }
       
       return null;
     });
 
-    // Verifica se retornou uma string válida (não boolean)
-    if (landingPage && typeof landingPage === 'string' && landingPage.length > 0 && landingPage !== 'null' && landingPage !== 'undefined') {
-      console.log('Landing page encontrada (método 2):', landingPage);
-      return landingPage;
+    // Verifica se retornou uma string válida (não boolean) e é uma URL válida
+    if (landingPage && typeof landingPage === 'string' && landingPage.length > 10) {
+      try {
+        const urlObj = new URL(landingPage);
+        const hostname = urlObj.hostname.toLowerCase();
+        // Valida se é um domínio válido (não IP, tem TLD válido)
+        if (hostname.includes('.') && 
+            hostname.split('.').length >= 2 &&
+            !/^\d+\.\d+\.\d+\.\d+$/.test(hostname) &&
+            hostname.length > 4 &&
+            !hostname.includes('facebook') &&
+            !hostname.includes('meta') &&
+            !hostname.includes('fbcdn') &&
+            !hostname.includes('instagram')) {
+          console.log('Landing page encontrada (método 2):', landingPage);
+          return landingPage;
+        }
+      } catch {
+        // URL inválida, continua
+      }
     }
     
     // Debug: verifica o que foi retornado
@@ -400,10 +498,10 @@ async function extractLandingPageUrl(page) {
       const pageHtml = await page.content();
       const pageText = await page.evaluate(() => document.body.innerText);
       
-      // Padrões para URLs mais específicos
+      // Padrões para URLs mais específicos (domínios válidos apenas)
       const urlPatterns = [
-        /https?:\/\/(?:www\.)?([a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+)(?:\/[^\s"<>]*)?/gi,
-        /(?:www\.)?([a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+)(?:\/[^\s"<>]*)?/gi
+        /https?:\/\/(?:www\.)?([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.)+[a-zA-Z]{2,}(?:\/[^\s"<>]*)?/gi,
+        /(?:www\.)?([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.)+[a-zA-Z]{2,}(?:\/[^\s"<>]*)?/gi
       ];
 
       const foundUrls = new Set();
@@ -427,13 +525,19 @@ async function extractLandingPageUrl(page) {
             // Ignora Facebook/Meta/Instagram e outras redes sociais
             const hostname = urlObj.hostname.toLowerCase();
             if (!hostname.includes('facebook') && 
+                !hostname.includes('fbcdn') &&
+                !hostname.includes('static.xx') &&
                 !hostname.includes('meta.com') &&
+                !hostname.includes('metastatus') &&
                 !hostname.includes('instagram') &&
                 !hostname.includes('twitter') &&
                 !hostname.includes('linkedin') &&
                 !hostname.includes('youtube') &&
                 !hostname.includes('tiktok') &&
-                hostname.length > 4) {
+                hostname.length > 4 &&
+                hostname.includes('.') &&
+                hostname.split('.').length >= 2 &&
+                !urlObj.pathname.match(/\.(png|jpg|jpeg|gif|svg|webp|ico)$/i)) {
               const cleanUrl = urlObj.origin + (urlObj.pathname !== '/' ? urlObj.pathname : '');
               foundUrls.add(cleanUrl);
             }
@@ -458,9 +562,15 @@ async function extractLandingPageUrl(page) {
             const urlObj = new URL(url);
             const hostname = urlObj.hostname.toLowerCase();
             if (!hostname.includes('facebook') && 
+                !hostname.includes('fbcdn') &&
+                !hostname.includes('static.xx') &&
                 !hostname.includes('meta.com') &&
+                !hostname.includes('metastatus') &&
                 !hostname.includes('instagram') &&
-                hostname.length > 4) {
+                hostname.length > 4 &&
+                hostname.includes('.') &&
+                hostname.split('.').length >= 2 &&
+                !urlObj.pathname.match(/\.(png|jpg|jpeg|gif|svg|webp|ico)$/i)) {
               const cleanUrl = urlObj.origin + (urlObj.pathname !== '/' ? urlObj.pathname : '');
               foundUrls.add(cleanUrl);
             }
@@ -470,14 +580,99 @@ async function extractLandingPageUrl(page) {
         }
       }
 
-      const urlsArray = Array.from(foundUrls);
+      const urlsArray = Array.from(foundUrls).filter(url => {
+        // Valida URLs antes de retornar
+        if (!url || typeof url !== 'string' || url.length < 10) return false;
+        try {
+          const urlObj = new URL(url);
+          const hostname = urlObj.hostname.toLowerCase();
+          
+          // Validações rigorosas de domínio
+          if (!hostname.includes('.')) return false;
+          const parts = hostname.split('.');
+          if (parts.length < 2) return false;
+          
+          // Não pode ser IP (0.0.0.5, etc)
+          if (/^\d+\.\d+\.\d+\.\d+$/.test(hostname)) return false;
+          
+          // Deve ter TLD válido (última parte deve ter pelo menos 2 caracteres e ser letras)
+          const tld = parts[parts.length - 1];
+          if (tld.length < 2 || /^\d+$/.test(tld) || !/^[a-z]{2,}$/.test(tld)) return false;
+          
+          // TLD deve ter pelo menos 2 letras e ser um TLD válido comum
+          // Aceita TLDs comuns ou qualquer TLD com 2-4 letras (padrão de TLDs reais)
+          if (tld.length < 2 || tld.length > 4 || !/^[a-z]{2,4}$/.test(tld)) return false;
+          
+          // Domínio deve ter pelo menos 5 caracteres
+          if (hostname.length < 5) return false;
+          
+          // Não pode ser domínios do Meta/Facebook
+          if (hostname.includes('facebook') || 
+              hostname.includes('meta') || 
+              hostname.includes('fbcdn') ||
+              hostname.includes('instagram') ||
+              hostname.includes('messenger') ||
+              hostname.includes('whatsapp')) {
+            return false;
+          }
+          
+          // Domínio deve ter formato válido (ex: exemplo.com, não crhkldee.crhkldee)
+          // Se o domínio e o TLD forem iguais, é inválido
+          const domainPart = parts[0];
+          if (domainPart.length < 2 || /^\d+$/.test(domainPart)) return false;
+          if (domainPart.toLowerCase() === tld.toLowerCase()) return false; // Evita "crhkldee.crhkldee"
+          
+            // Se todas as partes do domínio forem muito curtas ou iguais, é inválido
+            if (parts.length === 2 && parts[0].length < 3 && parts[1].length < 3) return false;
+            if (parts.length > 2 && parts.every(p => p.length < 3)) return false;
+            
+            // Se domínio e TLD forem iguais, é inválido (ex: crhkldee.crhkldee)
+            if (parts.length === 2 && parts[0].toLowerCase() === parts[1].toLowerCase()) return false;
+            
+            // Se alguma parte começa com número e é muito curta, é inválido (ex: 7d.ydmc.ydmc)
+            if (parts.some(p => /^\d/.test(p) && p.length < 3)) return false;
+            
+            // Se alguma parte contém extensões de arquivo (php, js, etc), é inválido
+            if (parts.some(p => /\.(php|js|css|html|json|xml)$/i.test(p))) return false;
+          
+          return true;
+        } catch {
+          return false;
+        }
+      });
+      
       if (urlsArray.length > 0) {
-        // Retorna a primeira URL encontrada (mais provável de ser a landing page)
+        // Retorna a primeira URL válida encontrada (mais provável de ser a landing page)
         const foundUrl = urlsArray[0];
-        if (typeof foundUrl === 'string' && foundUrl.length > 0) {
-          return foundUrl;
+        if (typeof foundUrl === 'string' && foundUrl.length > 10) {
+          // Validação final: deve ser um domínio real (não strings aleatórias)
+          try {
+            const urlObj = new URL(foundUrl);
+            const hostname = urlObj.hostname.toLowerCase();
+            const parts = hostname.split('.');
+            
+            // Se todas as partes forem muito curtas ou iguais, é inválido
+            if (parts.length === 2 && (parts[0].length < 3 || parts[1].length < 2)) return null;
+            if (parts.length > 2 && parts.every(p => p.length < 2)) return null;
+            
+            // Se domínio e TLD forem iguais, é inválido
+            if (parts.length === 2 && parts[0].toLowerCase() === parts[1].toLowerCase()) return null;
+            
+            // Se alguma parte contém extensões de arquivo, é inválido
+            if (parts.some(p => /\.(php|js|css|html|json|xml)$/i.test(p))) return null;
+            
+            // Se alguma parte começa com número e é muito curta, é inválido
+            if (parts.some(p => /^\d/.test(p) && p.length < 3)) return null;
+            
+            return foundUrl;
+          } catch {
+            return null;
+          }
         }
       }
+      
+      // Se não encontrou URL válida, retorna null
+      return null;
     } catch (e) {
       console.error('Erro no método 2 de extração de landing page:', e);
     }
@@ -537,11 +732,14 @@ async function extractLandingPageUrl(page) {
           const urlObj = new URL(url);
           const hostname = urlObj.hostname.toLowerCase();
           
-          // Ignora Facebook e redes sociais
+          // Ignora Facebook, redes sociais e CDN/imagens
           if (!hostname.includes('facebook') &&
+              !hostname.includes('fbcdn') &&
+              !hostname.includes('static.xx') &&
               !hostname.includes('instagram') &&
               !hostname.includes('meta.com') &&
-              hostname.length > 4) {
+              hostname.length > 4 &&
+              !urlObj.pathname.match(/\.(png|jpg|jpeg|gif|svg|webp|ico)$/i)) {
             const fullUrl = urlObj.origin + urlObj.pathname + (urlObj.search || '');
             return fullUrl;
           }
@@ -575,15 +773,15 @@ export async function scrapeMetaAdLibrary(url) {
       '--disable-blink-features=AutomationControlled',
       '--disable-features=IsolateOrigins,site-per-process',
       '--disable-web-security',
-      '--disable-dev-shm-usage',
-      '--disable-gpu',
-      '--single-process'
+      '--disable-dev-shm-usage'
     ]
   };
 
   // Configurações específicas para Vercel/serverless
   if (isVercel) {
     browserOptions.args.push(
+      '--disable-gpu',
+      '--single-process',
       '--disable-extensions',
       '--disable-background-networking',
       '--disable-background-timer-throttling',
@@ -631,10 +829,54 @@ export async function scrapeMetaAdLibrary(url) {
     const activeTime = await extractFirstAdActiveTime(page);
     const landingPageUrl = await extractLandingPageUrl(page);
 
-    // Garante que landingPageUrl é uma string ou null (nunca boolean)
+    // Garante que landingPageUrl é uma string válida ou null
     let finalLandingPage = null;
-    if (landingPageUrl && typeof landingPageUrl === 'string' && landingPageUrl.length > 0) {
-      finalLandingPage = landingPageUrl;
+    if (landingPageUrl && typeof landingPageUrl === 'string' && landingPageUrl.length > 10) {
+      // Validação final rigorosa
+      try {
+        const urlObj = new URL(landingPageUrl);
+        const hostname = urlObj.hostname.toLowerCase();
+        const parts = hostname.split('.');
+        
+        // Deve ter pelo menos 2 partes (domínio.tld)
+        if (parts.length < 2) {
+          finalLandingPage = null;
+        } else {
+          // Validações adicionais
+          const domain = parts[0];
+          const tld = parts[parts.length - 1];
+          
+          // Não pode ser IP
+          if (/^\d+\.\d+\.\d+\.\d+$/.test(hostname)) {
+            finalLandingPage = null;
+          }
+          // Domínio e TLD não podem ser iguais
+          else if (domain.toLowerCase() === tld.toLowerCase()) {
+            finalLandingPage = null;
+          }
+          // TLD deve ter pelo menos 2 letras
+          else if (tld.length < 2 || !/^[a-z]{2,}$/.test(tld)) {
+            finalLandingPage = null;
+          }
+          // Domínio deve ter pelo menos 2 caracteres
+          else if (domain.length < 2) {
+            finalLandingPage = null;
+          }
+          // Não pode conter extensões de arquivo
+          else if (hostname.includes('.php') || hostname.includes('.js') || hostname.includes('.css')) {
+            finalLandingPage = null;
+          }
+          // Não pode ser do Meta/Facebook
+          else if (hostname.includes('facebook') || hostname.includes('meta') || hostname.includes('fbcdn')) {
+            finalLandingPage = null;
+          }
+          else {
+            finalLandingPage = landingPageUrl;
+          }
+        }
+      } catch {
+        finalLandingPage = null;
+      }
     }
 
     console.log('Final landing page:', finalLandingPage, 'Type:', typeof finalLandingPage);
