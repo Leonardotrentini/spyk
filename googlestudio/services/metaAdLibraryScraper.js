@@ -5,15 +5,6 @@
 
 import puppeteer from 'puppeteer';
 
-// Tenta importar puppeteer-core para usar com @sparticuz/chromium na Vercel
-let puppeteerCore;
-try {
-  puppeteerCore = await import('puppeteer-core');
-  puppeteerCore = puppeteerCore.default || puppeteerCore;
-} catch (e) {
-  puppeteerCore = null;
-}
-
 /**
  * Extrai nome da página com múltiplos fallbacks
  */
@@ -916,6 +907,16 @@ export async function scrapeMetaAdLibrary(url) {
       
       console.log('✅ @sparticuz/chromium importado com sucesso');
       
+      // Importa puppeteer-core dinamicamente (melhor para serverless)
+      let puppeteerToUse = puppeteer;
+      try {
+        const puppeteerCoreModule = await import('puppeteer-core');
+        puppeteerToUse = puppeteerCoreModule.default || puppeteerCoreModule;
+        console.log('✅ puppeteer-core importado - usando para serverless');
+      } catch (e) {
+        console.warn('⚠️ puppeteer-core não disponível, usando puppeteer normal');
+      }
+      
       // Configura o executablePath do chromium
       browserOptions.executablePath = await chromiumModule.executablePath();
       console.log(`✅ Chrome path configurado: ${browserOptions.executablePath}`);
@@ -926,10 +927,6 @@ export async function scrapeMetaAdLibrary(url) {
         '--hide-scrollbars',
         '--disable-web-security'
       ];
-      
-      // Usa puppeteer-core se disponível (melhor para serverless)
-      const puppeteerToUse = puppeteerCore || puppeteer;
-      console.log(`✅ Usando ${puppeteerCore ? 'puppeteer-core' : 'puppeteer'} com @sparticuz/chromium`);
       
       browser = await puppeteerToUse.launch(browserOptions);
       console.log('✅ Browser iniciado com sucesso na Vercel');
