@@ -47,7 +47,7 @@ export const analyzeLibraryUrl = async (url: string): Promise<UrlAnalysisResult 
         brandName: 'Unknown Brand',
         niche: 'E-commerce',
         estimatedAdsCount: 0,
-        landingPageUrl: urlObj.origin,
+        landingPageUrl: null,
         summary: 'URL não é da Meta Ad Library',
         trafficEstimate: 'Unknown'
       };
@@ -80,8 +80,8 @@ export const analyzeLibraryUrl = async (url: string): Promise<UrlAnalysisResult 
     const data = result.data;
     const urlObj = new URL(url);
     
-    // Usa a landing page extraída do scraper, ou fallback para origin da URL
-    const landingPage = data.landingPageUrl || urlObj.origin;
+    // Usa a landing page extraída do scraper, ou null se não encontrou
+    const landingPage = data.landingPageUrl || null;
     
     // Converte dados do scraper para o formato esperado
     return {
@@ -105,7 +105,7 @@ export const analyzeLibraryUrl = async (url: string): Promise<UrlAnalysisResult 
         brandName: `Page ${pageId}`,
         niche: 'E-commerce',
         estimatedAdsCount: 0,
-        landingPageUrl: urlObj.origin,
+        landingPageUrl: null,
         summary: `Erro ao fazer scraping: ${error instanceof Error ? error.message : 'Unknown error'}`,
         trafficEstimate: 'Unknown'
       };
@@ -126,7 +126,7 @@ export const updateLibraryData = async (url: string): Promise<UrlAnalysisResult 
         brandName: 'Unknown Brand',
         niche: 'E-commerce',
         estimatedAdsCount: 0,
-        landingPageUrl: urlObj.origin,
+        landingPageUrl: null,
         summary: 'URL não é da Meta Ad Library',
         trafficEstimate: 'Unknown'
       };
@@ -162,7 +162,7 @@ export const updateLibraryData = async (url: string): Promise<UrlAnalysisResult 
       brandName: data.pageName || 'Unknown Brand',
       niche: 'E-commerce',
       estimatedAdsCount: data.totalActiveAds || 0,
-      landingPageUrl: data.landingPageUrl || urlObj.origin,
+      landingPageUrl: data.landingPageUrl || null,
       summary: `${data.pageName} - ${data.totalActiveAds} anúncios ativos desde ${data.firstAdStartDate}`,
       trafficEstimate: data.firstAdActiveTime || 'Unknown'
     };

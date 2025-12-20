@@ -9,7 +9,10 @@ import puppeteer from 'puppeteer';
  * Extrai nome da página com múltiplos fallbacks
  */
 async function extractPageName(page) {
-  await new Promise(resolve => setTimeout(resolve, 2000));
+  // Aguarda mais tempo no ambiente serverless (Vercel)
+  const isVercel = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
+  const waitTime = isVercel ? 6000 : 3000;
+  await new Promise(resolve => setTimeout(resolve, waitTime));
 
   try {
     const pageName = await page.evaluate(() => {
@@ -116,6 +119,12 @@ async function extractPageName(page) {
  * Extrai total de anúncios ativos com múltiplos fallbacks
  */
 async function extractTotalActiveAds(page) {
+  // Aguarda mais tempo no ambiente serverless
+  const isVercel = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
+  if (isVercel) {
+    await new Promise(resolve => setTimeout(resolve, 2000));
+  }
+  
   try {
     const pageText = await page.evaluate(() => document.body.innerText);
     
@@ -182,6 +191,12 @@ async function extractTotalActiveAds(page) {
  * Extrai data de início do primeiro anúncio
  */
 async function extractFirstAdStartDate(page) {
+  // Aguarda um pouco mais para garantir que os dados carregaram
+  const isVercel = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
+  if (isVercel) {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
+  
   const datePatterns = [
     /veiculação iniciada em (\d{1,2})\s+de\s+(\w+)\s+de\s+(\d{4})/i,
     /started on (\w+)\s+(\d{1,2}),\s+(\d{4})/i,
@@ -214,6 +229,12 @@ async function extractFirstAdStartDate(page) {
  * Extrai tempo total ativo do primeiro anúncio
  */
 async function extractFirstAdActiveTime(page) {
+  // Aguarda um pouco mais para garantir que os dados carregaram
+  const isVercel = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
+  if (isVercel) {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
+  
   try {
     const pageText = await page.evaluate(() => document.body.innerText);
     
@@ -241,8 +262,10 @@ async function extractFirstAdActiveTime(page) {
  */
 async function extractLandingPageUrl(page) {
   try {
-    // Aguarda um pouco mais para garantir que os cards carregaram
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    // Aguarda mais tempo no ambiente serverless para garantir que os cards carregaram
+    const isVercel = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
+    const waitTime = isVercel ? 6000 : 3000;
+    await new Promise(resolve => setTimeout(resolve, waitTime));
 
     // Método 1: Tenta clicar em "Ver detalhes" do primeiro anúncio para ver a landing page
     try {
@@ -820,8 +843,9 @@ export async function scrapeMetaAdLibrary(url) {
     });
 
     // Aguarda mais tempo na Vercel para garantir carregamento completo
-    const waitTime = isVercel ? 5000 : 3000;
-    await new Promise(resolve => setTimeout(resolve, waitTime));
+    console.log('⏳ Aguardando conteúdo dinâmico...');
+    const contentWaitTime = isVercel ? 8000 : 4000;
+    await new Promise(resolve => setTimeout(resolve, contentWaitTime));
 
     const pageName = await extractPageName(page);
     const totalAds = await extractTotalActiveAds(page);

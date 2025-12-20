@@ -53,7 +53,7 @@ export const AddLibraryModal: React.FC<AddLibraryModalProps> = ({
 
     if (result) {
       setBrandName(result.brandName);
-      setLandingPageUrl(result.landingPageUrl);
+      setLandingPageUrl(result.landingPageUrl || '');
       setActiveAdsCount(result.estimatedAdsCount);
       setTrafficEstimate(result.trafficEstimate || '');
       
