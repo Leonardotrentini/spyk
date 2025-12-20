@@ -18,9 +18,6 @@ export default defineConfig(({ mode }) => {
           '@': path.resolve(__dirname, '.'),
         }
       },
-      optimizeDeps: {
-        exclude: ['puppeteer', 'puppeteer-core']
-      },
       build: {
         outDir: 'dist',
         assetsDir: 'assets',

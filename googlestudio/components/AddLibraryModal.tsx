@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Sparkles, Loader2, Globe, Link as LinkIcon, Hash, BarChart2 } from 'lucide-react';
-import { analyzeLibraryUrl, UrlAnalysisResult } from '../services/scraperService';
+import { analyzeLibraryUrl } from '../lib/scraperService';
 import { LibraryEntry, NicheOption } from '../types';
 
 interface AddLibraryModalProps {
@@ -48,24 +48,43 @@ export const AddLibraryModal: React.FC<AddLibraryModalProps> = ({
   const handleAnalyze = async () => {
     if (!url) return;
     setIsAnalyzing(true);
-    const result: UrlAnalysisResult | null = await analyzeLibraryUrl(url);
-    setIsAnalyzing(false);
 
-    if (result) {
-      setBrandName(result.brandName);
-      setLandingPageUrl(result.landingPageUrl || '');
-      setActiveAdsCount(result.estimatedAdsCount);
-      setTrafficEstimate(result.trafficEstimate || '');
+    try {
+      const result = await analyzeLibraryUrl(url);
       
-      // Try to match existing niche or set partial
-      const match = existingNiches.find(n => n.label.toLowerCase() === result.niche.toLowerCase());
-      if (match) {
-        setSelectedNiche(match.label);
+      if (result) {
+        setBrandName(result.brandName);
+        setLandingPageUrl(result.landingPageUrl || '');
+        setActiveAdsCount(result.estimatedAdsCount);
+        setTrafficEstimate(result.trafficEstimate || '');
+        
+        // Try to match existing niche or set partial
+        const match = existingNiches.find(n => n.label.toLowerCase() === result.niche.toLowerCase());
+        if (match) {
+          setSelectedNiche(match.label);
+        } else {
+          setNewNicheInput(result.niche);
+          setSelectedNiche('__NEW__');
+        }
       } else {
-        // Auto-create logic could go here, but let's just pre-fill the "create new" input
-        setNewNicheInput(result.niche);
-        setSelectedNiche('__NEW__');
+        // Fallback: extrair da URL
+        try {
+          const urlObj = new URL(url);
+          const pageIdMatch = url.match(/view_all_page_id=(\d+)/);
+          if (pageIdMatch) {
+            setBrandName(`Page ${pageIdMatch[1]}`);
+          } else {
+            setBrandName(urlObj.hostname.replace('www.', ''));
+          }
+        } catch (e) {
+          setBrandName('Unknown');
+        }
       }
+    } catch (error: any) {
+      console.error('Error analyzing URL:', error);
+      alert(`Failed to analyze URL: ${error.message}`);
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 

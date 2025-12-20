@@ -150,3 +150,4 @@ CREATE TRIGGER update_kanban_tasks_updated_at
   BEFORE UPDATE ON kanban_tasks 
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+

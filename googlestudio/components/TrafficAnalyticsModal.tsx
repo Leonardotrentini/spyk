@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { X, Calendar, ArrowUp, ArrowDown, Users, Clock, MousePointer, Activity, Loader2 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { getTrafficAnalytics } from '../services/scraperService';
+// REMOVIDO: Import do scraperService
 import { TrafficStats } from '../types';
 
 interface TrafficAnalyticsModalProps {
@@ -22,10 +22,12 @@ export const TrafficAnalyticsModal: React.FC<TrafficAnalyticsModalProps> = ({
   useEffect(() => {
     if (isOpen && brandName) {
       setLoading(true);
-      getTrafficAnalytics(brandName, url).then(result => {
-        setData(result);
+      // REMOVIDO: Busca de analytics via scraper
+      // Para reativar, integrar com Supabase ou API externa
+      setTimeout(() => {
+        setData(null);
         setLoading(false);
-      });
+      }, 500);
     }
   }, [isOpen, brandName, url]);
 

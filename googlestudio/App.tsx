@@ -3,7 +3,7 @@ import {
   Plus, Search, Filter, LayoutGrid, List as ListIcon, 
   BarChart3, RefreshCw, XCircle, SlidersHorizontal,
   Layout, Heart, Kanban as KanbanIcon, Folder, Home, ChevronRight,
-  Globe2
+  Globe2, Loader2, AlertCircle
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
@@ -14,7 +14,8 @@ import { TrafficAnalyticsModal } from './components/TrafficAnalyticsModal';
 import { StatsOverview } from './components/StatsOverview';
 import { KanbanBoard } from './components/KanbanBoard';
 import { MarketResearch } from './components/MarketResearch';
-import { suggestNiches, analyzeLibraryUrl, updateLibraryData } from './services/scraperService';
+import * as dataService from './lib/dataService';
+import * as scraperService from './lib/scraperService';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#6366f1'];
 
@@ -33,25 +34,14 @@ const DEFAULT_BOARDS: Board[] = [
 
 const App: React.FC = () => {
   // --- State ---
-  const [entries, setEntries] = useState<LibraryEntry[]>(() => {
-    const saved = localStorage.getItem('adlib_entries');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [entries, setEntries] = useState<LibraryEntry[]>([]);
+  const [niches, setNiches] = useState<NicheOption[]>(DEFAULT_NICHES);
+  const [boards, setBoards] = useState<Board[]>(DEFAULT_BOARDS);
+  const [tasks, setTasks] = useState<KanbanTask[]>([]);
 
-  const [niches, setNiches] = useState<NicheOption[]>(() => {
-    const saved = localStorage.getItem('adlib_niches');
-    return saved ? JSON.parse(saved) : DEFAULT_NICHES;
-  });
-
-  const [boards, setBoards] = useState<Board[]>(() => {
-    const saved = localStorage.getItem('adlib_boards');
-    return saved ? JSON.parse(saved) : DEFAULT_BOARDS;
-  });
-
-  const [tasks, setTasks] = useState<KanbanTask[]>(() => {
-    const saved = localStorage.getItem('adlib_tasks');
-    return saved ? JSON.parse(saved) : [];
-  });
+  // Loading & Error States
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // UI State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -70,114 +60,79 @@ const App: React.FC = () => {
   const [filterMinDays, setFilterMinDays] = useState<number | ''>('');
   const [sortOption, setSortOption] = useState<SortOption>(SortOption.NEWEST);
   
-  // --- Effects ---
-  useEffect(() => { localStorage.setItem('adlib_entries', JSON.stringify(entries)); }, [entries]);
-  useEffect(() => { localStorage.setItem('adlib_niches', JSON.stringify(niches)); }, [niches]);
-  useEffect(() => { localStorage.setItem('adlib_boards', JSON.stringify(boards)); }, [boards]);
-  useEffect(() => { localStorage.setItem('adlib_tasks', JSON.stringify(tasks)); }, [tasks]);
-
-  // --- Auto-update em tempo real para bibliotecas em monitoramento ---
+  // --- Load Data from Supabase ---
   useEffect(() => {
-    // Intervalo de atualização: 5 minutos (300000ms)
-    const UPDATE_INTERVAL = 5 * 60 * 1000;
-    
-    // Função para atualizar uma biblioteca específica
-    const updateSingleLibrary = async (entry: LibraryEntry) => {
-      // Marca como atualizando
-      setEntries(prev => prev.map(e => 
-        e.id === entry.id ? { ...e, isUpdating: true } : e
-      ));
-
+    const loadData = async () => {
       try {
-        const updatedData = await updateLibraryData(entry.url);
-        
-        if (updatedData) {
-          setEntries(prev => prev.map(e => {
-            if (e.id === entry.id) {
-              return {
-                ...e,
-                brandName: updatedData.brandName,
-                activeAdsCount: updatedData.estimatedAdsCount,
-                landingPageUrl: updatedData.landingPageUrl,
-                lastChecked: Date.now(),
-                isUpdating: false
-              };
-            }
-            return e;
-          }));
-        } else {
-          // Se falhar, remove flag de atualização
-          setEntries(prev => prev.map(e => 
-            e.id === entry.id ? { ...e, isUpdating: false } : e
-          ));
-        }
-      } catch (error) {
-        console.error(`Erro ao atualizar biblioteca ${entry.brandName}:`, error);
-        // Remove flag de atualização em caso de erro
-        setEntries(prev => prev.map(e => 
-          e.id === entry.id ? { ...e, isUpdating: false } : e
-        ));
+        setLoading(true);
+        setError(null);
+
+        // Carregar todos os dados em paralelo
+        const [entriesData, nichesData, boardsData, tasksData] = await Promise.all([
+          dataService.fetchLibraryEntries().catch(() => []),
+          dataService.fetchNiches().catch(() => DEFAULT_NICHES),
+          dataService.fetchBoards().catch(() => DEFAULT_BOARDS),
+          dataService.fetchKanbanTasks().catch(() => [])
+        ]);
+
+        setEntries(entriesData);
+        setNiches(nichesData.length > 0 ? nichesData : DEFAULT_NICHES);
+        setBoards([...DEFAULT_BOARDS, ...boardsData]);
+        setTasks(tasksData);
+      } catch (err: any) {
+        console.error('Error loading data:', err);
+        setError(err.message || 'Failed to load data. Please check your Supabase configuration.');
+      } finally {
+        setLoading(false);
       }
     };
 
-    // Atualiza todas as bibliotecas em monitoramento
-    const updateAllMonitoringLibraries = async () => {
-      const monitoringEntries = entries.filter(e => e.status === 'monitoring' && !e.isUpdating);
-      
-      // Atualiza uma por vez para não sobrecarregar
-      for (const entry of monitoringEntries) {
-        await updateSingleLibrary(entry);
-        // Aguarda 2 segundos entre cada atualização
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      }
-    };
-
-    // Executa atualização inicial após 10 segundos
-    const initialTimeout = setTimeout(() => {
-      updateAllMonitoringLibraries();
-    }, 10000);
-
-    // Configura intervalo de atualização automática
-    const interval = setInterval(() => {
-      updateAllMonitoringLibraries();
-    }, UPDATE_INTERVAL);
-
-    // Cleanup
-    return () => {
-      clearTimeout(initialTimeout);
-      clearInterval(interval);
-    };
-  }, [entries]);
+    loadData();
+  }, []);
 
   // --- Handlers ---
-  const handleAddEntry = (entryData: Omit<LibraryEntry, 'id' | 'createdAt' | 'lastChecked'>) => {
-    const newEntry: LibraryEntry = {
-      ...entryData,
-      id: crypto.randomUUID(),
-      createdAt: Date.now(),
-      lastChecked: Date.now(),
-      isFavorite: false,
-      boardIds: [],
-    };
-    setEntries([newEntry, ...entries]);
-  };
-
-  const handleDeleteEntry = (id: string) => {
-    if (window.confirm('Are you sure you want to delete this library monitor?')) {
-      setEntries(entries.filter(e => e.id !== id));
+  const handleAddEntry = async (entryData: Omit<LibraryEntry, 'id' | 'createdAt' | 'lastChecked'>) => {
+    try {
+      const newEntry = await dataService.createLibraryEntry(entryData);
+      setEntries([newEntry, ...entries]);
+    } catch (err: any) {
+      console.error('Error creating entry:', err);
+      alert(`Failed to create entry: ${err.message}`);
     }
   };
 
-  const handleToggleStatus = (id: string) => {
-    setEntries(entries.map(e => 
-      e.id === id ? { ...e, status: e.status === 'monitoring' ? 'paused' : 'monitoring', isUpdating: false } : e
-    ));
+  const handleDeleteEntry = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this library monitor?')) return;
+
+    try {
+      await dataService.deleteLibraryEntry(id);
+      setEntries(entries.filter(e => e.id !== id));
+    } catch (err: any) {
+      console.error('Error deleting entry:', err);
+      alert(`Failed to delete entry: ${err.message}`);
+    }
   };
 
-  // Handler para atualização manual de uma biblioteca
+  const handleToggleStatus = async (id: string) => {
+    const entry = entries.find(e => e.id === id);
+    if (!entry) return;
+
+    const newStatus = entry.status === 'monitoring' ? 'paused' : 'monitoring';
+    
+    try {
+      await dataService.updateLibraryEntry(id, { status: newStatus, isUpdating: false });
+      setEntries(entries.map(e => 
+        e.id === id ? { ...e, status: newStatus, isUpdating: false } : e
+      ));
+    } catch (err: any) {
+      console.error('Error updating status:', err);
+      alert(`Failed to update status: ${err.message}`);
+    }
+  };
+
   const handleManualUpdate = async (id: string) => {
     const entry = entries.find(e => e.id === id);
-    if (!entry || entry.isUpdating) return;
+    if (!entry) return;
 
     // Marca como atualizando
     setEntries(prev => prev.map(e => 
@@ -185,9 +140,20 @@ const App: React.FC = () => {
     ));
 
     try {
-      const updatedData = await updateLibraryData(entry.url);
+      const updatedData = await scraperService.updateLibraryData(entry.url);
       
       if (updatedData) {
+        await dataService.updateLibraryEntry(id, {
+          brandName: updatedData.brandName,
+          activeAdsCount: updatedData.estimatedAdsCount,
+          landingPageUrl: updatedData.landingPageUrl,
+          niche: updatedData.niche,
+          trafficEstimate: updatedData.trafficEstimate,
+          lastChecked: Date.now(),
+          isUpdating: false
+        });
+
+        // Atualizar estado local
         setEntries(prev => prev.map(e => {
           if (e.id === id) {
             return {
@@ -195,6 +161,8 @@ const App: React.FC = () => {
               brandName: updatedData.brandName,
               activeAdsCount: updatedData.estimatedAdsCount,
               landingPageUrl: updatedData.landingPageUrl,
+              niche: updatedData.niche,
+              trafficEstimate: updatedData.trafficEstimate,
               lastChecked: Date.now(),
               isUpdating: false
             };
@@ -206,66 +174,110 @@ const App: React.FC = () => {
           e.id === id ? { ...e, isUpdating: false } : e
         ));
       }
-    } catch (error) {
-      console.error(`Erro ao atualizar biblioteca manualmente:`, error);
+    } catch (error: any) {
+      console.error(`Error updating library ${entry.brandName}:`, error);
       setEntries(prev => prev.map(e => 
         e.id === id ? { ...e, isUpdating: false } : e
       ));
+      alert(`Failed to update: ${error.message}`);
     }
   };
 
-  const handleToggleFavorite = (id: string) => {
-    setEntries(entries.map(e => e.id === id ? { ...e, isFavorite: !e.isFavorite } : e));
+  const handleToggleFavorite = async (id: string) => {
+    const entry = entries.find(e => e.id === id);
+    if (!entry) return;
+
+    try {
+      await dataService.updateLibraryEntry(id, { isFavorite: !entry.isFavorite });
+      setEntries(entries.map(e => e.id === id ? { ...e, isFavorite: !e.isFavorite } : e));
+    } catch (err: any) {
+      console.error('Error toggling favorite:', err);
+      alert(`Failed to update favorite: ${err.message}`);
+    }
   };
 
-  const handleToggleBoard = (entryId: string, boardId: string) => {
-    setEntries(entries.map(e => {
-       if (e.id !== entryId) return e;
-       const currentBoards = e.boardIds || [];
-       if (currentBoards.includes(boardId)) {
-         return { ...e, boardIds: currentBoards.filter(b => b !== boardId) };
-       } else {
-         return { ...e, boardIds: [...currentBoards, boardId] };
-       }
-    }));
+  const handleToggleBoard = async (entryId: string, boardId: string) => {
+    const entry = entries.find(e => e.id === entryId);
+    if (!entry) return;
+
+    const currentBoards = entry.boardIds || [];
+    const newBoardIds = currentBoards.includes(boardId)
+      ? currentBoards.filter(b => b !== boardId)
+      : [...currentBoards, boardId];
+
+    try {
+      await dataService.updateLibraryEntry(entryId, { boardIds: newBoardIds });
+      setEntries(entries.map(e => {
+        if (e.id !== entryId) return e;
+        return { ...e, boardIds: newBoardIds };
+      }));
+    } catch (err: any) {
+      console.error('Error updating boards:', err);
+      alert(`Failed to update boards: ${err.message}`);
+    }
   };
 
-  // Open traffic modal
   const handleOpenTrafficAnalysis = (id: string) => {
     setTrafficEntryId(id);
   };
 
-  const handleCreateBoard = () => {
+  const handleCreateBoard = async () => {
     const name = prompt("Enter new board name:");
-    if (name) {
-      setBoards([...boards, { id: crypto.randomUUID(), name, type: 'custom' }]);
+    if (!name) return;
+
+    try {
+      const newBoard = await dataService.createBoard({ name, type: 'custom' });
+      setBoards([...boards, newBoard]);
+    } catch (err: any) {
+      console.error('Error creating board:', err);
+      alert(`Failed to create board: ${err.message}`);
     }
   };
 
-  const handleCreateNiche = (label: string) => {
+  const handleCreateNiche = async (label: string) => {
     const exists = niches.some(n => n.label.toLowerCase() === label.toLowerCase());
     if (exists) return;
+
     const colors = ['bg-pink-100 text-pink-800', 'bg-cyan-100 text-cyan-800', 'bg-orange-100 text-orange-800'];
     const randomColor = colors[Math.floor(Math.random() * colors.length)];
-    setNiches([...niches, { id: crypto.randomUUID(), label, color: randomColor }]);
+
+    try {
+      const newNiche = await dataService.createNiche({ label, color: randomColor });
+      setNiches([...niches, newNiche]);
+    } catch (err: any) {
+      console.error('Error creating niche:', err);
+      alert(`Failed to create niche: ${err.message}`);
+    }
   };
 
-  const suggestNewNiches = async () => {
-      const suggestions = await suggestNiches(entries.slice(0, 10).map(e => ({ brandName: e.brandName, notes: e.niche })));
-      suggestions.forEach(s => handleCreateNiche(s));
-  }
-  
-  // Kanban Handlers
-  const handleAddTask = (content: string, status: KanbanTask['status']) => {
-    setTasks([...tasks, { id: crypto.randomUUID(), content, status, createdAt: Date.now() }]);
+  const handleAddTask = async (content: string, status: KanbanTask['status']) => {
+    try {
+      const newTask = await dataService.createKanbanTask({ content, status });
+      setTasks([...tasks, newTask]);
+    } catch (err: any) {
+      console.error('Error creating task:', err);
+      alert(`Failed to create task: ${err.message}`);
+    }
   };
 
-  const handleUpdateTaskStatus = (taskId: string, newStatus: KanbanTask['status']) => {
-    setTasks(tasks.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+  const handleUpdateTaskStatus = async (taskId: string, newStatus: KanbanTask['status']) => {
+    try {
+      await dataService.updateKanbanTask(taskId, { status: newStatus });
+      setTasks(tasks.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+    } catch (err: any) {
+      console.error('Error updating task:', err);
+      alert(`Failed to update task: ${err.message}`);
+    }
   };
 
-  const handleDeleteTask = (taskId: string) => {
-    setTasks(tasks.filter(t => t.id !== taskId));
+  const handleDeleteTask = async (taskId: string) => {
+    try {
+      await dataService.deleteKanbanTask(taskId);
+      setTasks(tasks.filter(t => t.id !== taskId));
+    } catch (err: any) {
+      console.error('Error deleting task:', err);
+      alert(`Failed to delete task: ${err.message}`);
+    }
   };
 
   const resetFilters = () => {
@@ -346,6 +358,37 @@ const App: React.FC = () => {
 
   // Find the selected entry for the traffic modal
   const activeTrafficEntry = entries.find(e => e.id === trafficEntryId);
+
+  // Loading State
+  if (loading) {
+    return (
+      <div className="flex h-screen bg-slate-50 items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
+          <p className="text-slate-600">Loading data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error State
+  if (error) {
+    return (
+      <div className="flex h-screen bg-slate-50 items-center justify-center p-8">
+        <div className="max-w-md w-full bg-white rounded-xl border border-red-200 p-6 text-center">
+          <AlertCircle className="w-12 h-12 text-red-600 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-slate-900 mb-2">Error Loading Data</h2>
+          <p className="text-slate-600 mb-4">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-slate-50 text-slate-900 overflow-hidden font-sans">
@@ -453,12 +496,6 @@ const App: React.FC = () => {
            
            {view === 'library' && (
              <div className="flex items-center gap-3">
-                <button 
-                  onClick={suggestNewNiches}
-                  className="flex items-center gap-2 text-sm text-slate-600 hover:text-blue-600 transition-colors px-3 py-1.5 rounded-lg hover:bg-slate-50"
-                >
-                  <RefreshCw size={16} /> <span className="hidden sm:inline">Suggestions</span>
-                </button>
                 <button 
                   onClick={() => setIsModalOpen(true)}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm shadow-blue-200 transition-all hover:translate-y-[-1px]"

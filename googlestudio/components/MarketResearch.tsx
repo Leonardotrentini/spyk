@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Search, Sparkles, TrendingUp, HelpCircle, Lightbulb, ArrowRight, Loader2, BarChart2, Zap, BarChart, Globe, MapPin } from 'lucide-react';
-import { analyzeMarketTrends, getCountryTrends, MarketTrendReport } from '../services/scraperService';
+// REMOVIDO: Import do scraperService
+// type MarketTrendReport = any; // Para não quebrar o código
 
 const COUNTRIES = [
   { code: 'US', name: 'United States' },
@@ -23,7 +24,7 @@ export const MarketResearch: React.FC = () => {
   const [selectedCountry, setSelectedCountry] = useState('US');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isLoadingTrends, setIsLoadingTrends] = useState(false);
-  const [report, setReport] = useState<MarketTrendReport | null>(null);
+  const [report, setReport] = useState<any | null>(null); // MarketTrendReport removido
   const [countryTrends, setCountryTrends] = useState<{topic: string, category: string}[]>([]);
 
   const handleSearch = async (e?: React.FormEvent) => {
@@ -33,19 +34,22 @@ export const MarketResearch: React.FC = () => {
     setIsAnalyzing(true);
     setReport(null);
     
-    // Pass the query (niche) AND country to the deep analysis function
-    const countryName = COUNTRIES.find(c => c.code === selectedCountry)?.name || 'United States';
-    const result = await analyzeMarketTrends(query, countryName);
-    
-    setReport(result);
-    setIsAnalyzing(false);
+    // REMOVIDO: Análise de mercado via scraper
+    // Para reativar, integrar com Supabase ou API externa
+    setTimeout(() => {
+      setReport(null);
+      setIsAnalyzing(false);
+    }, 1000);
   };
 
   const loadCountryTrends = async (countryName: string) => {
     setIsLoadingTrends(true);
-    const trends = await getCountryTrends(countryName);
-    setCountryTrends(trends);
-    setIsLoadingTrends(false);
+    // REMOVIDO: Busca de tendências via scraper
+    // Para reativar, integrar com Supabase ou API externa
+    setTimeout(() => {
+      setCountryTrends([]);
+      setIsLoadingTrends(false);
+    }, 500);
   };
 
   // Initial load or when country changes
@@ -62,7 +66,8 @@ export const MarketResearch: React.FC = () => {
     
     const countryName = COUNTRIES.find(c => c.code === selectedCountry)?.name || 'United States';
     
-    analyzeMarketTrends(topic, countryName).then(result => {
+    // REMOVIDO: analyzeMarketTrends via scraper
+    Promise.resolve(null).then(result => {
       setReport(result);
       setIsAnalyzing(false);
       // Smooth scroll to report
