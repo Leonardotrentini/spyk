@@ -905,10 +905,19 @@ export async function scrapeMetaAdLibrary(url) {
 
   // Na Vercel, usa @sparticuz/chromium para Chrome compatível com serverless
   let browser;
-  if (isVercel && chromium && chromium.default) {
+  let puppeteerToUse = puppeteer;
+  
+  if (isVercel) {
     try {
-      // Usa @sparticuz/chromium que fornece Chrome otimizado para serverless
-      const chromiumModule = chromium.default;
+      // Importa @sparticuz/chromium dinamicamente
+      const chromium = await import('@sparticuz/chromium');
+      const chromiumModule = chromium.default || chromium;
+      
+      // Usa puppeteer-core se disponível (melhor para serverless)
+      if (puppeteerCore) {
+        puppeteerToUse = puppeteerCore;
+        console.log('✅ Usando puppeteer-core com @sparticuz/chromium');
+      }
       
       // Configura o executablePath e args do chromium
       browserOptions.executablePath = await chromiumModule.executablePath();
@@ -919,21 +928,22 @@ export async function scrapeMetaAdLibrary(url) {
       ];
       
       console.log(`✅ Usando @sparticuz/chromium para Vercel`);
-      browser = await puppeteer.launch(browserOptions);
+      browser = await puppeteerToUse.launch(browserOptions);
     } catch (chromiumError) {
-      console.warn('⚠️ @sparticuz/chromium falhou, tentando puppeteer normal...', chromiumError.message);
+      console.warn('⚠️ @sparticuz/chromium falhou:', chromiumError.message);
       // Fallback para puppeteer normal
       try {
         browserOptions.executablePath = puppeteer.executablePath();
         browser = await puppeteer.launch(browserOptions);
       } catch (fallbackError) {
+        console.warn('⚠️ Fallback também falhou:', fallbackError.message);
         // Último fallback: sem executablePath
         delete browserOptions.executablePath;
         browser = await puppeteer.launch(browserOptions);
       }
     }
   } else {
-    // Localmente ou se @sparticuz/chromium não estiver disponível
+    // Localmente
     browser = await puppeteer.launch(browserOptions);
   }
 
