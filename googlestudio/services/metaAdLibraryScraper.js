@@ -116,18 +116,59 @@ async function extractPageName(page) {
       return null;
     });
 
-    if (pageName && pageName !== 'Unknown Page') {
+    if (pageName && pageName !== 'Unknown Page' && !pageName.includes('Page ID')) {
       return pageName;
     }
   } catch (e) {
     console.error('Erro ao extrair nome da página:', e);
   }
 
-  // Fallback: Tenta extrair da URL
+  // Na Vercel, tenta mais uma vez após aguardar mais tempo
+  const isVercelRetry = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
+  if (isVercelRetry) {
+    console.log('⚠️ Primeira tentativa falhou, aguardando mais tempo na Vercel...');
+    await new Promise(resolve => setTimeout(resolve, 10000));
+    
+    try {
+      const pageNameRetry = await page.evaluate(() => {
+        // Busca mais agressiva pelo nome
+        const bodyText = document.body.innerText;
+        const lines = bodyText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        
+        // Busca por linha que parece nome (tem letras, não é muito longa, não é palavra comum)
+        for (const line of lines) {
+          if (line.length >= 3 && 
+              line.length <= 50 &&
+              !line.includes('Biblioteca') &&
+              !line.includes('Anúncio') &&
+              !line.includes('Meta') &&
+              !line.includes('Facebook') &&
+              !line.match(/^\d+$/) &&
+              /[a-zA-Z]/.test(line) &&
+              /^[A-Z]/.test(line)) {
+            // Verifica se tem pelo menos uma palavra com letra minúscula (não é só siglas)
+            if (/[a-z]/.test(line)) {
+              return line;
+            }
+          }
+        }
+        return null;
+      });
+      
+      if (pageNameRetry && !pageNameRetry.includes('Page ID')) {
+        return pageNameRetry;
+      }
+    } catch (e) {
+      console.error('Erro na segunda tentativa:', e);
+    }
+  }
+
+  // Último fallback: Tenta extrair da URL (só se realmente não conseguir)
   try {
     const url = page.url();
     const match = url.match(/view_all_page_id=(\d+)/);
     if (match) {
+      console.warn(`⚠️ Não foi possível extrair nome da página, usando Page ID como fallback: ${match[1]}`);
       return `Page ID: ${match[1]}`;
     }
   } catch (e) {
