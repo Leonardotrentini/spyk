@@ -1,5 +1,9 @@
 {
   "version": 2,
+  "buildCommand": "cd googlestudio && npm run build",
+  "outputDirectory": "googlestudio/dist",
+  "installCommand": "cd googlestudio && npm install",
+  "framework": "vite",
   "rewrites": [
     {
       "source": "/(.*)",
