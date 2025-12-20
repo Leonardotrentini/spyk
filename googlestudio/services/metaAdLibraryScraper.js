@@ -5,6 +5,15 @@
 
 import puppeteer from 'puppeteer';
 
+// Importa @sparticuz/chromium para ambiente serverless (Vercel) - alternativa moderna ao chrome-aws-lambda
+let chromium;
+try {
+  chromium = await import('@sparticuz/chromium');
+} catch (e) {
+  // @sparticuz/chromium pode não estar disponível localmente
+  chromium = null;
+}
+
 /**
  * Extrai nome da página com múltiplos fallbacks
  */
