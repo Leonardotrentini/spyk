@@ -12,26 +12,10 @@ async function extractPageName(page) {
   // Aguarda mais tempo no ambiente serverless (Vercel)
   const isVercel = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
   
-  // Na Vercel, aguarda elementos específicos aparecerem
+  // Na Vercel: SIMPLIFICADO - apenas aguarda tempo fixo
   if (isVercel) {
-    try {
-      // Aguarda por elementos que indicam que o conteúdo carregou
-      await page.waitForSelector('img', { timeout: 20000 }).catch(() => {});
-      await page.waitForFunction(
-        () => {
-          const text = document.body.innerText;
-          return text.length > 1000 && (
-            text.includes('Anúncios') || 
-            text.includes('Sobre') || 
-            text.includes('resultado')
-          );
-        },
-        { timeout: 20000 }
-      ).catch(() => {});
-      await new Promise(resolve => setTimeout(resolve, 10000));
-    } catch (e) {
-      await new Promise(resolve => setTimeout(resolve, 8000));
-    }
+    // Aguarda tempo suficiente para conteúdo carregar
+    await new Promise(resolve => setTimeout(resolve, 5000));
   } else {
     await new Promise(resolve => setTimeout(resolve, 3000));
   }
@@ -885,9 +869,9 @@ export async function scrapeMetaAdLibrary(url) {
 
   // Configurações específicas para Vercel/serverless
   if (isVercel) {
+    // NÃO usar --single-process na Vercel, causa problemas
     browserOptions.args.push(
       '--disable-gpu',
-      '--single-process',
       '--disable-extensions',
       '--disable-background-networking',
       '--disable-background-timer-throttling',
@@ -928,42 +912,22 @@ export async function scrapeMetaAdLibrary(url) {
     // Aguarda mais tempo na Vercel para garantir carregamento completo
     console.log('⏳ Aguardando conteúdo dinâmico...');
     if (isVercel) {
-      // Na Vercel, aguarda elementos aparecerem e faz scroll para garantir renderização
+      // Na Vercel: SIMPLIFICADO - apenas aguarda tempo suficiente
+      // Tempos muito grandes para garantir que tudo carregue
+      console.log('⏳ Ambiente Vercel detectado - aguardando 20 segundos...');
+      await new Promise(resolve => setTimeout(resolve, 20000));
+      
+      // Tenta aguardar conteúdo básico aparecer (sem bloquear se falhar)
       try {
-        // Rola a página para garantir que elementos sejam renderizados
-        await page.evaluate(() => {
-          window.scrollTo(0, 0);
-        });
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        await page.evaluate(() => {
-          window.scrollTo(0, 500);
-        });
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        await page.evaluate(() => {
-          window.scrollTo(0, 0);
-        });
-        
-        // Aguarda imagem aparecer (indica que o perfil carregou)
-        await page.waitForSelector('img', { timeout: 20000 }).catch(() => {});
-        // Aguarda texto suficiente aparecer
-        await page.waitForFunction(
-          () => {
-            const text = document.body.innerText;
-            return text.length > 2000 && (
-              text.includes('resultado') || 
-              text.includes('Anúncio') || 
-              text.includes('Ativo') ||
-              text.includes('Biblioteca') ||
-              text.includes('Anúncios')
-            );
-          },
-          { timeout: 20000 }
-        ).catch(() => {});
-        // Aguarda adicional para garantir que tudo carregou
-        await new Promise(resolve => setTimeout(resolve, 12000));
+        await page.waitForSelector('body', { timeout: 5000 }).catch(() => {});
+        // Rola a página para garantir renderização
+        await page.evaluate(() => window.scrollTo(0, 500));
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await new Promise(resolve => setTimeout(resolve, 5000));
       } catch (e) {
-        // Em caso de erro, aguarda tempo fixo
-        await new Promise(resolve => setTimeout(resolve, 15000));
+        // Continua mesmo se falhar
+        await new Promise(resolve => setTimeout(resolve, 5000));
       }
     } else {
       await new Promise(resolve => setTimeout(resolve, 4000));
