@@ -5,6 +5,15 @@
 
 import puppeteer from 'puppeteer';
 
+// Tenta importar puppeteer-core para usar com @sparticuz/chromium na Vercel
+let puppeteerCore;
+try {
+  puppeteerCore = await import('puppeteer-core');
+  puppeteerCore = puppeteerCore.default || puppeteerCore;
+} catch (e) {
+  puppeteerCore = null;
+}
+
 /**
  * Extrai nome da página com múltiplos fallbacks
  */
