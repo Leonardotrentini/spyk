@@ -19,10 +19,16 @@ export interface UrlAnalysisResult {
  * Usa a Edge Function analyze-url do Supabase
  */
 export async function analyzeLibraryUrl(url: string): Promise<UrlAnalysisResult | null> {
+  if (!supabase) {
+    console.error('Supabase não está configurado. Configure as variáveis de ambiente na Vercel Dashboard.');
+    return null;
+  }
+  
   try {
     const user = await getOrCreateUser();
     if (!user) {
-      throw new Error('User not authenticated');
+      console.error('User not authenticated');
+      return null;
     }
 
     // Obter token de sessão

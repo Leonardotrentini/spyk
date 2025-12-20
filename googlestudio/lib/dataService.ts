@@ -6,9 +6,17 @@
 import { supabase, getOrCreateUser } from './supabase';
 import { LibraryEntry, NicheOption, Board, KanbanTask } from '../types';
 
+// Helper para verificar se Supabase está configurado
+function checkSupabaseConfig() {
+  if (!supabase) {
+    throw new Error('Supabase não está configurado. Configure as variáveis de ambiente VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY na Vercel Dashboard.');
+  }
+}
+
 // ===== LIBRARY ENTRIES =====
 
 export async function fetchLibraryEntries(): Promise<LibraryEntry[]> {
+  checkSupabaseConfig();
   const user = await getOrCreateUser();
   if (!user) throw new Error('User not authenticated');
 
