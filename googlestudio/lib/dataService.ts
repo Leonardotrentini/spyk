@@ -63,6 +63,7 @@ export async function fetchLibraryEntries(): Promise<LibraryEntry[]> {
 }
 
 export async function createLibraryEntry(entry: Omit<LibraryEntry, 'id' | 'createdAt' | 'lastChecked'>): Promise<LibraryEntry> {
+  checkSupabaseConfig();
   const user = await getOrCreateUser();
   if (!user) throw new Error('User not authenticated');
 
