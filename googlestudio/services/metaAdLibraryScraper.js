@@ -894,7 +894,40 @@ export async function scrapeMetaAdLibrary(url) {
     );
   }
 
-  const browser = await puppeteer.launch(browserOptions);
+  // Na Vercel, configura o executablePath do Chrome
+  let browser;
+  if (isVercel) {
+    // Tenta usar o executablePath do puppeteer (que sabe onde está o Chrome)
+    try {
+      // O puppeteer tem uma função executablePath() que retorna o path correto
+      const puppeteerCore = await import('puppeteer-core');
+      const chromePath = getChromeExecutablePath();
+      
+      if (chromePath) {
+        browserOptions.executablePath = chromePath;
+        console.log(`✅ Tentando usar Chrome em: ${chromePath}`);
+      }
+    } catch (e) {
+      console.warn('⚠️ Erro ao configurar executablePath:', e.message);
+    }
+    
+    try {
+      browser = await puppeteer.launch(browserOptions);
+    } catch (launchError) {
+      // Se falhar com executablePath, tenta sem (puppeteer tenta baixar automaticamente)
+      console.warn('⚠️ Launch falhou, tentando sem executablePath configurado...');
+      delete browserOptions.executablePath;
+      
+      // Tenta novamente - puppeteer pode baixar automaticamente se necessário
+      try {
+        browser = await puppeteer.launch(browserOptions);
+      } catch (finalError) {
+        throw new Error(`Falha ao iniciar browser na Vercel: ${finalError.message}. Certifique-se de que o Chrome foi instalado durante o build.`);
+      }
+    }
+  } else {
+    browser = await puppeteer.launch(browserOptions);
+  }
 
   try {
     const page = await browser.newPage();
