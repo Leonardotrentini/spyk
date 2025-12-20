@@ -116,6 +116,7 @@ export async function createLibraryEntry(entry: Omit<LibraryEntry, 'id' | 'creat
 }
 
 export async function updateLibraryEntry(id: string, updates: Partial<LibraryEntry>): Promise<void> {
+  checkSupabaseConfig();
   const user = await getOrCreateUser();
   if (!user) throw new Error('User not authenticated');
 
@@ -163,6 +164,7 @@ export async function updateLibraryEntry(id: string, updates: Partial<LibraryEnt
 }
 
 export async function deleteLibraryEntry(id: string): Promise<void> {
+  checkSupabaseConfig();
   const user = await getOrCreateUser();
   if (!user) throw new Error('User not authenticated');
 
@@ -178,6 +180,7 @@ export async function deleteLibraryEntry(id: string): Promise<void> {
 // ===== NICHES =====
 
 export async function fetchNiches(): Promise<NicheOption[]> {
+  checkSupabaseConfig();
   const user = await getOrCreateUser();
   if (!user) throw new Error('User not authenticated');
 
@@ -197,6 +200,7 @@ export async function fetchNiches(): Promise<NicheOption[]> {
 }
 
 export async function createNiche(niche: Omit<NicheOption, 'id'>): Promise<NicheOption> {
+  checkSupabaseConfig();
   const user = await getOrCreateUser();
   if (!user) throw new Error('User not authenticated');
 
@@ -222,6 +226,7 @@ export async function createNiche(niche: Omit<NicheOption, 'id'>): Promise<Niche
 // ===== BOARDS =====
 
 export async function fetchBoards(): Promise<Board[]> {
+  checkSupabaseConfig();
   const user = await getOrCreateUser();
   if (!user) throw new Error('User not authenticated');
 
@@ -241,6 +246,7 @@ export async function fetchBoards(): Promise<Board[]> {
 }
 
 export async function createBoard(board: Omit<Board, 'id'>): Promise<Board> {
+  checkSupabaseConfig();
   const user = await getOrCreateUser();
   if (!user) throw new Error('User not authenticated');
 
@@ -266,6 +272,7 @@ export async function createBoard(board: Omit<Board, 'id'>): Promise<Board> {
 // ===== KANBAN TASKS =====
 
 export async function fetchKanbanTasks(): Promise<KanbanTask[]> {
+  checkSupabaseConfig();
   const user = await getOrCreateUser();
   if (!user) throw new Error('User not authenticated');
 
@@ -286,6 +293,7 @@ export async function fetchKanbanTasks(): Promise<KanbanTask[]> {
 }
 
 export async function createKanbanTask(task: Omit<KanbanTask, 'id' | 'createdAt'>): Promise<KanbanTask> {
+  checkSupabaseConfig();
   const user = await getOrCreateUser();
   if (!user) throw new Error('User not authenticated');
 
@@ -310,6 +318,7 @@ export async function createKanbanTask(task: Omit<KanbanTask, 'id' | 'createdAt'
 }
 
 export async function updateKanbanTask(id: string, updates: Partial<KanbanTask>): Promise<void> {
+  checkSupabaseConfig();
   const user = await getOrCreateUser();
   if (!user) throw new Error('User not authenticated');
 
@@ -327,6 +336,7 @@ export async function updateKanbanTask(id: string, updates: Partial<KanbanTask>)
 }
 
 export async function deleteKanbanTask(id: string): Promise<void> {
+  checkSupabaseConfig();
   const user = await getOrCreateUser();
   if (!user) throw new Error('User not authenticated');
 
