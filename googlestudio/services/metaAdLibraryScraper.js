@@ -853,7 +853,8 @@ async function extractLandingPageUrl(page) {
  */
 export async function scrapeMetaAdLibrary(url) {
   // Detecta se está rodando na Vercel (serverless)
-  const isVercel = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
+  const isVercel = process.env.VERCEL === '1' || !!process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
+  console.log(`🔍 Ambiente detectado - isVercel: ${isVercel}, VERCEL env: ${process.env.VERCEL}`);
   
   let browserOptions = {
     headless: 'new',

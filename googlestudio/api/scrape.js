@@ -43,23 +43,9 @@ export default async function handler(req, res) {
     }
 
     console.log(`🚀 Starting scrape for: ${url}`);
+    console.log(`🔍 VERCEL env: ${process.env.VERCEL}, NODE_ENV: ${process.env.NODE_ENV}`);
 
-    // Na Vercel, garante que o Chrome está instalado antes de executar
-    if (process.env.VERCEL) {
-      try {
-        const { execSync } = await import('child_process');
-        console.log('⏳ Verificando instalação do Chrome na Vercel...');
-        // Tenta instalar o Chrome se não estiver disponível
-        execSync('npx puppeteer browsers install chrome 2>&1 || true', { 
-          stdio: 'inherit',
-          timeout: 120000 
-        });
-      } catch (e) {
-        console.warn('⚠️ Não foi possível instalar Chrome:', e.message);
-      }
-    }
-
-    // Executa o scraper
+    // Executa o scraper (não tenta instalar Chrome manualmente - usa @sparticuz/chromium)
     const result = await scrapeMetaAdLibrary(url);
 
     console.log(`✅ Scrape completed:`, result);
