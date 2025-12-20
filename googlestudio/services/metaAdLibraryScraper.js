@@ -905,45 +905,46 @@ export async function scrapeMetaAdLibrary(url) {
 
   // Na Vercel, usa @sparticuz/chromium para Chrome compatível com serverless
   let browser;
-  let puppeteerToUse = puppeteer;
   
   if (isVercel) {
+    console.log('🔍 Ambiente Vercel detectado - usando @sparticuz/chromium');
+    
     try {
       // Importa @sparticuz/chromium dinamicamente
       const chromium = await import('@sparticuz/chromium');
       const chromiumModule = chromium.default || chromium;
       
-      // Usa puppeteer-core se disponível (melhor para serverless)
-      if (puppeteerCore) {
-        puppeteerToUse = puppeteerCore;
-        console.log('✅ Usando puppeteer-core com @sparticuz/chromium');
-      }
+      console.log('✅ @sparticuz/chromium importado com sucesso');
       
-      // Configura o executablePath e args do chromium
+      // Configura o executablePath do chromium
       browserOptions.executablePath = await chromiumModule.executablePath();
+      console.log(`✅ Chrome path configurado: ${browserOptions.executablePath}`);
+      
+      // Usa os args recomendados do chromium
       browserOptions.args = [
         ...chromiumModule.args,
         '--hide-scrollbars',
         '--disable-web-security'
       ];
       
-      console.log(`✅ Usando @sparticuz/chromium para Vercel`);
+      // Usa puppeteer-core se disponível (melhor para serverless)
+      const puppeteerToUse = puppeteerCore || puppeteer;
+      console.log(`✅ Usando ${puppeteerCore ? 'puppeteer-core' : 'puppeteer'} com @sparticuz/chromium`);
+      
       browser = await puppeteerToUse.launch(browserOptions);
+      console.log('✅ Browser iniciado com sucesso na Vercel');
     } catch (chromiumError) {
-      console.warn('⚠️ @sparticuz/chromium falhou:', chromiumError.message);
-      // Fallback para puppeteer normal
-      try {
-        browserOptions.executablePath = puppeteer.executablePath();
-        browser = await puppeteer.launch(browserOptions);
-      } catch (fallbackError) {
-        console.warn('⚠️ Fallback também falhou:', fallbackError.message);
-        // Último fallback: sem executablePath
-        delete browserOptions.executablePath;
-        browser = await puppeteer.launch(browserOptions);
-      }
+      console.error('❌ ERRO ao usar @sparticuz/chromium:', chromiumError);
+      console.error('Stack:', chromiumError.stack);
+      // Na Vercel, SEM fallback - lança erro explicativo
+      throw new Error(
+        `Falha ao iniciar browser na Vercel com @sparticuz/chromium: ${chromiumError.message}. ` +
+        `Verifique se @sparticuz/chromium está instalado corretamente.`
+      );
     }
   } else {
-    // Localmente
+    // Localmente - usa puppeteer normal
+    console.log('🏠 Ambiente local detectado - usando puppeteer padrão');
     browser = await puppeteer.launch(browserOptions);
   }
 
