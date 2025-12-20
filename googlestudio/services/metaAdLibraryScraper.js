@@ -16,8 +16,19 @@ async function extractPageName(page) {
   if (isVercel) {
     try {
       // Aguarda por elementos que indicam que o conteúdo carregou
-      await page.waitForSelector('img', { timeout: 15000 }).catch(() => {});
-      await new Promise(resolve => setTimeout(resolve, 8000));
+      await page.waitForSelector('img', { timeout: 20000 }).catch(() => {});
+      await page.waitForFunction(
+        () => {
+          const text = document.body.innerText;
+          return text.length > 1000 && (
+            text.includes('Anúncios') || 
+            text.includes('Sobre') || 
+            text.includes('resultado')
+          );
+        },
+        { timeout: 20000 }
+      ).catch(() => {});
+      await new Promise(resolve => setTimeout(resolve, 10000));
     } catch (e) {
       await new Promise(resolve => setTimeout(resolve, 8000));
     }
