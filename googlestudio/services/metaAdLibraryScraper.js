@@ -11,8 +11,19 @@ import puppeteer from 'puppeteer';
 async function extractPageName(page) {
   // Aguarda mais tempo no ambiente serverless (Vercel)
   const isVercel = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
-  const waitTime = isVercel ? 6000 : 3000;
-  await new Promise(resolve => setTimeout(resolve, waitTime));
+  
+  // Na Vercel, aguarda elementos específicos aparecerem
+  if (isVercel) {
+    try {
+      // Aguarda por elementos que indicam que o conteúdo carregou
+      await page.waitForSelector('img', { timeout: 15000 }).catch(() => {});
+      await new Promise(resolve => setTimeout(resolve, 8000));
+    } catch (e) {
+      await new Promise(resolve => setTimeout(resolve, 8000));
+    }
+  } else {
+    await new Promise(resolve => setTimeout(resolve, 3000));
+  }
 
   try {
     const pageName = await page.evaluate(() => {
@@ -122,7 +133,24 @@ async function extractTotalActiveAds(page) {
   // Aguarda mais tempo no ambiente serverless
   const isVercel = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
   if (isVercel) {
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Na Vercel, aguarda um pouco mais e verifica se há conteúdo
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    try {
+      // Tenta aguardar algum texto aparecer indicando que o conteúdo carregou
+      await page.waitForFunction(
+        () => {
+          const text = document.body.innerText.toLowerCase();
+          return text.includes('resultado') || 
+                 text.includes('ads') || 
+                 text.includes('anúncio') ||
+                 text.includes('ativo') ||
+                 text.length > 2000; // Se tiver muito texto, provavelmente carregou
+        },
+        { timeout: 15000 }
+      ).catch(() => {});
+    } catch (e) {
+      // Ignora erro e continua
+    }
   }
   
   try {
@@ -130,10 +158,13 @@ async function extractTotalActiveAds(page) {
     
     const patterns = [
       /(?:~)?(\d+)\s*resultado/i,
+      /(?:~)?(\d+)\s*resultados/i,
       /(?:~)?(\d+)\s*ads?/i,
       /(?:~)?(\d+)\s*anúncio/i,
+      /(?:~)?(\d+)\s*anúncios/i,
       /total[:\s]+(\d+)/i,
-      /(\d+)\s*active/i
+      /(\d+)\s*active/i,
+      /(\d+)\s*ativos/i
     ];
 
     for (const pattern of patterns) {
@@ -844,8 +875,21 @@ export async function scrapeMetaAdLibrary(url) {
 
     // Aguarda mais tempo na Vercel para garantir carregamento completo
     console.log('⏳ Aguardando conteúdo dinâmico...');
-    const contentWaitTime = isVercel ? 8000 : 4000;
-    await new Promise(resolve => setTimeout(resolve, contentWaitTime));
+    if (isVercel) {
+      // Na Vercel, aguarda elementos aparecerem
+      try {
+        await page.waitForSelector('img', { timeout: 15000 }).catch(() => {});
+        await page.waitForFunction(
+          () => document.body.innerText.length > 1000,
+          { timeout: 15000 }
+        ).catch(() => {});
+        await new Promise(resolve => setTimeout(resolve, 10000));
+      } catch (e) {
+        await new Promise(resolve => setTimeout(resolve, 10000));
+      }
+    } else {
+      await new Promise(resolve => setTimeout(resolve, 4000));
+    }
 
     const pageName = await extractPageName(page);
     const totalAds = await extractTotalActiveAds(page);
