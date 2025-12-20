@@ -903,26 +903,37 @@ export async function scrapeMetaAdLibrary(url) {
     );
   }
 
-  // Na Vercel, usa o executablePath que o puppeteer conhece
+  // Na Vercel, usa @sparticuz/chromium para Chrome compatível com serverless
   let browser;
-  if (isVercel) {
+  if (isVercel && chromium && chromium.default) {
     try {
-      // Usa o executablePath do puppeteer que aponta para o Chrome instalado
-      browserOptions.executablePath = puppeteer.executablePath();
-      console.log(`✅ Usando Chrome em: ${browserOptions.executablePath}`);
-    } catch (e) {
-      console.warn('⚠️ Erro ao obter executablePath:', e.message);
-    }
-    
-    try {
+      // Usa @sparticuz/chromium que fornece Chrome otimizado para serverless
+      const chromiumModule = chromium.default;
+      
+      // Configura o executablePath e args do chromium
+      browserOptions.executablePath = await chromiumModule.executablePath();
+      browserOptions.args = [
+        ...chromiumModule.args,
+        '--hide-scrollbars',
+        '--disable-web-security'
+      ];
+      
+      console.log(`✅ Usando @sparticuz/chromium para Vercel`);
       browser = await puppeteer.launch(browserOptions);
-    } catch (launchError) {
-      // Se falhar, tenta sem executablePath (puppeteer pode baixar se necessário)
-      console.warn('⚠️ Launch falhou, tentando sem executablePath...');
-      delete browserOptions.executablePath;
-      browser = await puppeteer.launch(browserOptions);
+    } catch (chromiumError) {
+      console.warn('⚠️ @sparticuz/chromium falhou, tentando puppeteer normal...', chromiumError.message);
+      // Fallback para puppeteer normal
+      try {
+        browserOptions.executablePath = puppeteer.executablePath();
+        browser = await puppeteer.launch(browserOptions);
+      } catch (fallbackError) {
+        // Último fallback: sem executablePath
+        delete browserOptions.executablePath;
+        browser = await puppeteer.launch(browserOptions);
+      }
     }
   } else {
+    // Localmente ou se @sparticuz/chromium não estiver disponível
     browser = await puppeteer.launch(browserOptions);
   }
 
