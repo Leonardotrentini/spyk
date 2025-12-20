@@ -887,16 +887,42 @@ export async function scrapeMetaAdLibrary(url) {
     // Aguarda mais tempo na Vercel para garantir carregamento completo
     console.log('⏳ Aguardando conteúdo dinâmico...');
     if (isVercel) {
-      // Na Vercel, aguarda elementos aparecerem
+      // Na Vercel, aguarda elementos aparecerem e faz scroll para garantir renderização
       try {
-        await page.waitForSelector('img', { timeout: 15000 }).catch(() => {});
+        // Rola a página para garantir que elementos sejam renderizados
+        await page.evaluate(() => {
+          window.scrollTo(0, 0);
+        });
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        await page.evaluate(() => {
+          window.scrollTo(0, 500);
+        });
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        await page.evaluate(() => {
+          window.scrollTo(0, 0);
+        });
+        
+        // Aguarda imagem aparecer (indica que o perfil carregou)
+        await page.waitForSelector('img', { timeout: 20000 }).catch(() => {});
+        // Aguarda texto suficiente aparecer
         await page.waitForFunction(
-          () => document.body.innerText.length > 1000,
-          { timeout: 15000 }
+          () => {
+            const text = document.body.innerText;
+            return text.length > 2000 && (
+              text.includes('resultado') || 
+              text.includes('Anúncio') || 
+              text.includes('Ativo') ||
+              text.includes('Biblioteca') ||
+              text.includes('Anúncios')
+            );
+          },
+          { timeout: 20000 }
         ).catch(() => {});
-        await new Promise(resolve => setTimeout(resolve, 10000));
+        // Aguarda adicional para garantir que tudo carregou
+        await new Promise(resolve => setTimeout(resolve, 12000));
       } catch (e) {
-        await new Promise(resolve => setTimeout(resolve, 10000));
+        // Em caso de erro, aguarda tempo fixo
+        await new Promise(resolve => setTimeout(resolve, 15000));
       }
     } else {
       await new Promise(resolve => setTimeout(resolve, 4000));
