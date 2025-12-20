@@ -919,23 +919,35 @@ export async function scrapeMetaAdLibrary(url) {
       }
       
       // Configura o executablePath do chromium ANTES de qualquer outra coisa
-      const chromiumPath = await chromiumModule.executablePath();
+      // NOTA: @sparticuz/chromium pode precisar ser executado de forma assíncrona
+      let chromiumPath;
+      try {
+        chromiumPath = await chromiumModule.executablePath();
+        console.log(`✅ chromium.executablePath() retornou: ${chromiumPath}`);
+      } catch (pathError) {
+        console.error('❌ Erro ao obter executablePath:', pathError);
+        throw new Error(`Falha ao obter chromium.executablePath(): ${pathError.message}`);
+      }
+      
       if (!chromiumPath) {
         throw new Error('chromium.executablePath() retornou null/undefined');
       }
       
-      browserOptions.executablePath = chromiumPath;
-      console.log(`✅ Chrome path configurado: ${browserOptions.executablePath}`);
+      // NOVA CONFIGURAÇÃO: Cria novo objeto browserOptions para evitar conflitos
+      const vercelBrowserOptions = {
+        args: [
+          ...chromiumModule.args,
+          '--hide-scrollbars',
+          '--disable-web-security'
+        ],
+        defaultViewport: chromiumModule.defaultViewport,
+        executablePath: chromiumPath,
+        headless: chromiumModule.headless,
+      };
       
-      // Usa os args recomendados do chromium (IMPORTANTE: substitui os args anteriores)
-      browserOptions.args = [
-        ...chromiumModule.args,
-        '--hide-scrollbars',
-        '--disable-web-security'
-      ];
-      
+      console.log(`✅ Chrome path configurado: ${vercelBrowserOptions.executablePath}`);
       console.log(`🚀 Tentando iniciar browser com puppeteer-core + @sparticuz/chromium...`);
-      browser = await puppeteerToUse.launch(browserOptions);
+      browser = await puppeteerToUse.launch(vercelBrowserOptions);
       console.log('✅ Browser iniciado com sucesso na Vercel');
     } catch (chromiumError) {
       console.error('❌ ERRO ao usar @sparticuz/chromium:', chromiumError);
