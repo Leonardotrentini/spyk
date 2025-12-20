@@ -908,27 +908,33 @@ export async function scrapeMetaAdLibrary(url) {
       
       console.log('✅ @sparticuz/chromium importado com sucesso');
       
-      // Importa puppeteer-core dinamicamente (melhor para serverless)
-      let puppeteerToUse = puppeteer;
+      // OBRIGATÓRIO: Usa puppeteer-core na Vercel (puppeteer normal vem com Chrome que não funciona em serverless)
+      let puppeteerToUse;
       try {
         const puppeteerCoreModule = await import('puppeteer-core');
         puppeteerToUse = puppeteerCoreModule.default || puppeteerCoreModule;
-        console.log('✅ puppeteer-core importado - usando para serverless');
+        console.log('✅ puppeteer-core importado - OBRIGATÓRIO para serverless');
       } catch (e) {
-        console.warn('⚠️ puppeteer-core não disponível, usando puppeteer normal');
+        throw new Error(`puppeteer-core é OBRIGATÓRIO na Vercel, mas não foi encontrado: ${e.message}`);
       }
       
-      // Configura o executablePath do chromium
-      browserOptions.executablePath = await chromiumModule.executablePath();
+      // Configura o executablePath do chromium ANTES de qualquer outra coisa
+      const chromiumPath = await chromiumModule.executablePath();
+      if (!chromiumPath) {
+        throw new Error('chromium.executablePath() retornou null/undefined');
+      }
+      
+      browserOptions.executablePath = chromiumPath;
       console.log(`✅ Chrome path configurado: ${browserOptions.executablePath}`);
       
-      // Usa os args recomendados do chromium
+      // Usa os args recomendados do chromium (IMPORTANTE: substitui os args anteriores)
       browserOptions.args = [
         ...chromiumModule.args,
         '--hide-scrollbars',
         '--disable-web-security'
       ];
       
+      console.log(`🚀 Tentando iniciar browser com puppeteer-core + @sparticuz/chromium...`);
       browser = await puppeteerToUse.launch(browserOptions);
       console.log('✅ Browser iniciado com sucesso na Vercel');
     } catch (chromiumError) {
