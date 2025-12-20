@@ -1,7 +1,8 @@
 {
-  "buildCommand": "cd googlestudio && npm install && npm run build",
-  "outputDirectory": "googlestudio/dist",
-  "installCommand": "cd googlestudio && npm install",
+  "buildCommand": "npm install && npm run build",
+  "outputDirectory": "dist",
+  "installCommand": "npm install",
+  "rootDirectory": "googlestudio",
   "framework": null,
   "rewrites": [
     {
